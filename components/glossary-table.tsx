@@ -4,7 +4,7 @@ import { useRef, useEffect } from "react"
 import { type GlossaryTerm, type Discipline, disciplineMap } from "@/lib/data"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
-import { Download, Trash2 } from "lucide-react"
+import { Download } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { downloadWorkbook, createBeautifulWorkbook } from "@/lib/xlsx-download"
 
@@ -102,14 +102,13 @@ export function GlossaryTable({
             <th className="p-2 sm:p-3 text-xs sm:text-sm font-medium text-samoo-gray hidden sm:table-cell w-[35%]">
               설명
             </th>
-            {isVocabularyMode && isAdmin && <th className="p-2 sm:p-3 w-[40px] sm:w-[5%] text-center rounded-tr-lg" />}
           </tr>
         </thead>
         <tbody>
           {terms.length === 0 ? (
             <tr>
               <td
-                colSpan={isVocabularyMode && isAdmin ? (currentView === "all" ? 6 : 5) : currentView === "all" ? 4 : 3}
+                colSpan={isVocabularyMode ? (currentView === "all" ? 5 : 4) : currentView === "all" ? 4 : 3}
                 className="p-4 sm:p-6 text-center text-samoo-gray-medium italic text-sm"
               >
                 등록된 용어가 없습니다.
@@ -156,19 +155,6 @@ export function GlossaryTable({
                   <td className="p-2 sm:p-3 text-xs sm:text-sm text-samoo-gray hidden sm:table-cell">
                     {term.description}
                   </td>
-                  {isVocabularyMode && isAdmin && (
-                    <td className="p-2 sm:p-3 text-center">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-red-500 hover:bg-red-100"
-                        onClick={() => onDeleteTerm(term.id)}
-                      >
-                        <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                        <span className="sr-only">용어 삭제</span>
-                      </Button>
-                    </td>
-                  )}
                 </tr>
               )
             })

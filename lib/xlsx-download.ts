@@ -28,10 +28,10 @@ export function createBeautifulWorkbook(data: any[], sheetName: string, title?: 
 
   // Set column widths for better readability
   const colWidths = [
-    { wch: 12 }, // 공종
-    { wch: 30 }, // EN
-    { wch: 30 }, // KR
-    { wch: 45 }, // 설명
+    { wch: 15 }, // 공종
+    { wch: 35 }, // EN
+    { wch: 35 }, // KR
+    { wch: 50 }, // 설명
   ]
   ws["!cols"] = colWidths
 
@@ -41,17 +41,28 @@ export function createBeautifulWorkbook(data: any[], sheetName: string, title?: 
   for (let R = range.s.r; R <= range.e.r; ++R) {
     for (let C = range.s.c; C <= range.e.c; ++C) {
       const cellAddress = XLSX.utils.encode_cell({ r: R, c: C })
-      if (!ws[cellAddress]) continue
-
-      // Initialize cell style
-      ws[cellAddress].s = {}
+      if (!ws[cellAddress]) {
+        ws[cellAddress] = { t: "s", v: "" }
+      }
 
       // Title row styling (if exists)
       if (title && R === 0) {
         ws[cellAddress].s = {
-          font: { bold: true, sz: 16, color: { rgb: "0047AB" } },
-          alignment: { horizontal: "center", vertical: "center" },
-          fill: { fgColor: { rgb: "F0F8FF" } },
+          font: {
+            bold: true,
+            sz: 18,
+            color: { rgb: "0047AB" },
+            name: "Arial",
+          },
+          alignment: {
+            horizontal: "center",
+            vertical: "center",
+            wrapText: false,
+          },
+          fill: {
+            patternType: "solid",
+            fgColor: { rgb: "E6F0FF" },
+          },
           border: {
             top: { style: "thick", color: { rgb: "0047AB" } },
             bottom: { style: "thick", color: { rgb: "0047AB" } },
@@ -64,9 +75,21 @@ export function createBeautifulWorkbook(data: any[], sheetName: string, title?: 
       // Header row styling
       else if ((title && R === 2) || (!title && R === 0)) {
         ws[cellAddress].s = {
-          font: { bold: true, sz: 12, color: { rgb: "FFFFFF" } },
-          alignment: { horizontal: "center", vertical: "center" },
-          fill: { fgColor: { rgb: "0047AB" } },
+          font: {
+            bold: true,
+            sz: 12,
+            color: { rgb: "FFFFFF" },
+            name: "Arial",
+          },
+          alignment: {
+            horizontal: "center",
+            vertical: "center",
+            wrapText: false,
+          },
+          fill: {
+            patternType: "solid",
+            fgColor: { rgb: "0047AB" },
+          },
           border: {
             top: { style: "medium", color: { rgb: "000000" } },
             bottom: { style: "medium", color: { rgb: "000000" } },
@@ -78,24 +101,38 @@ export function createBeautifulWorkbook(data: any[], sheetName: string, title?: 
 
       // Data rows styling
       else if ((title && R > 2) || (!title && R > 0)) {
-        const isEvenRow = (title && R % 2 === 1) || (!title && R % 2 === 1)
+        const isEvenRow = (title && (R - 3) % 2 === 0) || (!title && (R - 1) % 2 === 0)
+
         ws[cellAddress].s = {
-          font: { sz: 11 },
-          alignment: { horizontal: "left", vertical: "center", wrapText: true },
-          fill: { fgColor: { rgb: isEvenRow ? "F8F9FA" : "FFFFFF" } },
+          font: {
+            sz: 11,
+            name: "Arial",
+            color: { rgb: "000000" },
+          },
+          alignment: {
+            horizontal: C === 0 ? "center" : "left",
+            vertical: "center",
+            wrapText: true,
+          },
+          fill: {
+            patternType: "solid",
+            fgColor: { rgb: isEvenRow ? "F8F9FA" : "FFFFFF" },
+          },
           border: {
-            top: { style: "thin", color: { rgb: "E0E0E0" } },
-            bottom: { style: "thin", color: { rgb: "E0E0E0" } },
-            left: { style: "thin", color: { rgb: "E0E0E0" } },
-            right: { style: "thin", color: { rgb: "E0E0E0" } },
+            top: { style: "thin", color: { rgb: "D0D0D0" } },
+            bottom: { style: "thin", color: { rgb: "D0D0D0" } },
+            left: { style: "thin", color: { rgb: "D0D0D0" } },
+            right: { style: "thin", color: { rgb: "D0D0D0" } },
           },
         }
 
         // Special styling for discipline column (first column)
         if (C === 0) {
-          ws[cellAddress].s.alignment = { horizontal: "center", vertical: "center" }
-          ws[cellAddress].s.font = { sz: 11, bold: true }
-          ws[cellAddress].s.fill = { fgColor: { rgb: "E6F0FF" } }
+          ws[cellAddress].s.font.bold = true
+          ws[cellAddress].s.fill = {
+            patternType: "solid",
+            fgColor: { rgb: "E6F0FF" },
+          }
         }
       }
     }
@@ -110,11 +147,13 @@ export function createBeautifulWorkbook(data: any[], sheetName: string, title?: 
   ws["!rows"] = []
   for (let i = 0; i <= range.e.r; i++) {
     if (title && i === 0) {
-      ws["!rows"][i] = { hpt: 30 } // Title row height
+      ws["!rows"][i] = { hpt: 35 } // Title row height
+    } else if (title && i === 1) {
+      ws["!rows"][i] = { hpt: 15 } // Empty row height
     } else if ((title && i === 2) || (!title && i === 0)) {
       ws["!rows"][i] = { hpt: 25 } // Header row height
     } else {
-      ws["!rows"][i] = { hpt: 20 } // Data row height
+      ws["!rows"][i] = { hpt: 22 } // Data row height
     }
   }
 
@@ -127,10 +166,13 @@ export function createBeautifulWorkbook(data: any[], sheetName: string, title?: 
  * Works in any browser environment without relying on fs/Deno APIs.
  */
 export function downloadWorkbook(wb: XLSX.WorkBook, filename: string) {
-  /* create an ArrayBuffer */
+  /* create an ArrayBuffer with proper options for styling */
   const wbArray: ArrayBuffer = XLSX.write(wb, {
     bookType: "xlsx",
     type: "array",
+    cellStyles: true, // Enable cell styling
+    sheetStubs: false,
+    bookSST: false,
   }) as ArrayBuffer
 
   /* wrap in a Blob and trigger download */
@@ -174,11 +216,13 @@ export function createTemplateWorkbook() {
 
   const wb = createBeautifulWorkbook(templateData, "용어 템플릿", "SAMOO 하이테크 1본부 - 한영 기술용어집 템플릿")
 
-  // Add instructions sheet
+  // Add instructions sheet with styling
   const instructionsData = [
-    ["사용 방법"],
+    ["📋 SAMOO 하이테크 1본부 - 용어집 업로드 가이드"],
     [""],
-    ["1. 공종 열에는 다음 약어 중 하나를 입력하세요:"],
+    ["✅ 사용 방법"],
+    [""],
+    ["1️⃣ 공종 열에는 다음 약어 중 하나를 정확히 입력하세요:"],
     ["   • Gen: 프로젝트 일반 용어"],
     ["   • Arch: Architecture (건축)"],
     ["   • Elec: Electrical (전기)"],
@@ -190,18 +234,21 @@ export function createTemplateWorkbook() {
     ["   • Struct: Structure (구조)"],
     ["   • Cell: Cell (배터리)"],
     [""],
-    ["2. EN 열에는 영어 용어를 입력하세요."],
+    ["2️⃣ EN 열에는 영어 용어를 입력하세요."],
     [""],
-    ["3. KR 열에는 한국어 용어를 입력하세요."],
+    ["3️⃣ KR 열에는 한국어 용어를 입력하세요."],
     [""],
-    ["4. 설명 열에는 용어에 대한 설명을 입력하세요 (선택사항)."],
+    ["4️⃣ 설명 열에는 용어에 대한 설명을 입력하세요 (선택사항)."],
     [""],
-    ["5. 작성 완료 후 파일을 저장하고 웹사이트에서 업로드하세요."],
+    ["5️⃣ 작성 완료 후 파일을 저장하고 웹사이트에서 업로드하세요."],
     [""],
-    ["주의사항:"],
-    ["• 첫 번째 행(헤더)은 삭제하지 마세요."],
-    ["• 공종 약어는 정확히 입력해야 합니다."],
+    ["⚠️ 주의사항:"],
+    ["• 첫 번째 행(헤더)은 절대 삭제하지 마세요."],
+    ["• 공종 약어는 대소문자를 구분하여 정확히 입력해야 합니다."],
     ["• 영어와 한국어 용어는 필수 입력 항목입니다."],
+    ["• 중복된 용어는 자동으로 건너뛰어집니다."],
+    [""],
+    ["💡 팁: 이 템플릿을 참고하여 용어를 추가하세요!"],
   ]
 
   const instructionsWs = XLSX.utils.aoa_to_sheet(instructionsData)
@@ -210,44 +257,95 @@ export function createTemplateWorkbook() {
   const instrRange = XLSX.utils.decode_range(instructionsWs["!ref"] || "A1")
 
   // Set column width
-  instructionsWs["!cols"] = [{ wch: 60 }]
+  instructionsWs["!cols"] = [{ wch: 70 }]
 
   // Style cells
   for (let R = instrRange.s.r; R <= instrRange.e.r; ++R) {
     const cellAddress = XLSX.utils.encode_cell({ r: R, c: 0 })
-    if (!instructionsWs[cellAddress]) continue
-
-    instructionsWs[cellAddress].s = {}
+    if (!instructionsWs[cellAddress]) {
+      instructionsWs[cellAddress] = { t: "s", v: "" }
+    }
 
     // Title styling
     if (R === 0) {
       instructionsWs[cellAddress].s = {
-        font: { bold: true, sz: 14, color: { rgb: "0047AB" } },
-        alignment: { horizontal: "center", vertical: "center" },
-        fill: { fgColor: { rgb: "F0F8FF" } },
+        font: {
+          bold: true,
+          sz: 16,
+          color: { rgb: "0047AB" },
+          name: "Arial",
+        },
+        alignment: {
+          horizontal: "center",
+          vertical: "center",
+          wrapText: true,
+        },
+        fill: {
+          patternType: "solid",
+          fgColor: { rgb: "E6F0FF" },
+        },
+        border: {
+          top: { style: "medium", color: { rgb: "0047AB" } },
+          bottom: { style: "medium", color: { rgb: "0047AB" } },
+          left: { style: "medium", color: { rgb: "0047AB" } },
+          right: { style: "medium", color: { rgb: "0047AB" } },
+        },
       }
     }
     // Section headers
     else if (
       instructionsWs[cellAddress].v &&
       typeof instructionsWs[cellAddress].v === "string" &&
-      (instructionsWs[cellAddress].v.includes("1.") || instructionsWs[cellAddress].v.includes("주의사항:"))
+      (instructionsWs[cellAddress].v.includes("사용 방법") ||
+        instructionsWs[cellAddress].v.includes("주의사항:") ||
+        instructionsWs[cellAddress].v.includes("팁:"))
     ) {
       instructionsWs[cellAddress].s = {
-        font: { bold: true, sz: 12, color: { rgb: "0047AB" } },
-        alignment: { horizontal: "left", vertical: "center" },
+        font: {
+          bold: true,
+          sz: 13,
+          color: { rgb: "0047AB" },
+          name: "Arial",
+        },
+        alignment: {
+          horizontal: "left",
+          vertical: "center",
+          wrapText: true,
+        },
+        fill: {
+          patternType: "solid",
+          fgColor: { rgb: "F0F8FF" },
+        },
       }
     }
     // Regular text
     else {
       instructionsWs[cellAddress].s = {
-        font: { sz: 11 },
-        alignment: { horizontal: "left", vertical: "center", wrapText: true },
+        font: {
+          sz: 11,
+          name: "Arial",
+          color: { rgb: "000000" },
+        },
+        alignment: {
+          horizontal: "left",
+          vertical: "center",
+          wrapText: true,
+        },
       }
     }
   }
 
-  XLSX.utils.book_append_sheet(wb, instructionsWs, "사용방법")
+  // Set row heights for instructions
+  instructionsWs["!rows"] = []
+  for (let i = 0; i <= instrRange.e.r; i++) {
+    if (i === 0) {
+      instructionsWs["!rows"][i] = { hpt: 30 } // Title row
+    } else {
+      instructionsWs["!rows"][i] = { hpt: 18 } // Regular rows
+    }
+  }
+
+  XLSX.utils.book_append_sheet(wb, instructionsWs, "📋 사용방법")
 
   return wb
 }
