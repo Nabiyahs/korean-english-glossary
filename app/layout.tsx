@@ -5,8 +5,6 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Settings } from "lucide-react"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -30,17 +28,7 @@ export default async function RootLayout({
               <Link href="/" className="flex items-center gap-2 font-bold text-lg text-samoo-blue">
                 한영 기술용어집
               </Link>
-              <nav className="flex items-center gap-4">
-                <Link
-                  href="/admin"
-                  className="text-sm font-medium text-samoo-gray hover:text-samoo-blue transition-colors"
-                >
-                  <Button variant="ghost" size="sm">
-                    <Settings className="w-4 h-4 mr-2" />
-                    관리자
-                  </Button>
-                </Link>
-              </nav>
+              <div></div>
             </div>
           </header>
           <main>{children}</main>
