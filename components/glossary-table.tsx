@@ -4,7 +4,7 @@ import { useRef, useEffect } from "react"
 import { type GlossaryTerm, type Discipline, disciplineMap } from "@/lib/data"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
-import { Download, Trash2 } from "lucide-react" // Import Trash2 icon
+import { Download, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import * as XLSX from "xlsx"
 import { downloadWorkbook } from "@/lib/xlsx-download"
@@ -16,8 +16,8 @@ interface GlossaryTableProps {
   selectedTerms: Set<string>
   onToggleTermSelection: (id: string, checked: boolean) => void
   highlightedTermId: string | null
-  onDeleteTerm: (id: string) => Promise<void> // Updated to return Promise<void>
-  isAdmin: boolean // New prop for admin status
+  onDeleteTerm: (id: string) => Promise<void>
+  isAdmin: boolean
 }
 
 export function GlossaryTable({
@@ -28,7 +28,7 @@ export function GlossaryTable({
   onToggleTermSelection,
   highlightedTermId,
   onDeleteTerm,
-  isAdmin, // Destructure the new prop
+  isAdmin,
 }: GlossaryTableProps) {
   const disciplineRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
@@ -64,11 +64,10 @@ export function GlossaryTable({
       const element = document.getElementById(`term-${highlightedTermId}`)
       if (element) {
         element.scrollIntoView({ behavior: "smooth", block: "center" })
-        // Add a temporary highlight class
         element.classList.add("highlight-animation")
         const timer = setTimeout(() => {
           element.classList.remove("highlight-animation")
-        }, 2000) // Remove highlight after 2 seconds
+        }, 2000)
         return () => clearTimeout(timer)
       }
     }
@@ -76,12 +75,12 @@ export function GlossaryTable({
 
   const renderTable = (terms: GlossaryTerm[], discipline?: Discipline) => (
     <div className="overflow-x-auto rounded-lg border border-samoo-gray-light shadow-sm bg-white">
-      <table className="w-full text-left border-collapse table-fixed">
+      <table className="w-full text-left border-collapse">
         {/* HEADER ROW */}
         <thead>
           <tr className="bg-samoo-gray-light/50">
             {isVocabularyMode && (
-              <th className="p-3 w-[5%] text-center rounded-tl-lg">
+              <th className="p-2 sm:p-3 w-[40px] sm:w-[5%] text-center">
                 {discipline && (
                   <Checkbox
                     checked={isAllSelectedInDiscipline(discipline)}
@@ -91,26 +90,20 @@ export function GlossaryTable({
                 )}
               </th>
             )}
-            {currentView === "all" && <th className="p-3 text-sm font-medium text-samoo-gray w-[15%]">구분</th>}
-            <th className="p-3 text-sm font-medium text-samoo-gray w-[20%]">EN</th>
-            <th className="p-3 text-sm font-medium text-samoo-gray w-[20%]">KR</th>
-            <th className="p-3 text-sm font-medium text-samoo-gray w-[35%]">설명</th>
-            {isVocabularyMode && isAdmin && <th className="p-3 w-[5%] text-center rounded-tr-lg" />}
+            {currentView === "all" && (
+              <th className="p-2 sm:p-3 text-xs sm:text-sm font-medium text-samoo-gray w-[60px] sm:w-[15%]">구분</th>
+            )}
+            <th className="p-2 sm:p-3 text-xs sm:text-sm font-medium text-samoo-gray">EN</th>
+            <th className="p-2 sm:p-3 text-xs sm:text-sm font-medium text-samoo-gray">KR</th>
+            <th className="p-2 sm:p-3 text-xs sm:text-sm font-medium text-samoo-gray hidden sm:table-cell">설명</th>
+            {isVocabularyMode && isAdmin && <th className="p-2 sm:p-3 w-[40px] sm:w-[5%] text-center" />}
           </tr>
         </thead>
         <tbody>
           {terms.length === 0 ? (
             <tr>
               <td
-                colSpan={
-                  isVocabularyMode && isAdmin
-                    ? currentView === "all"
-                      ? 6 // 5 columns + 1 for delete
-                      : 5 // 4 columns + 1 for delete
-                    : currentView === "all"
-                      ? 4
-                      : 3
-                }
+                colSpan={isVocabularyMode && isAdmin ? (currentView === "all" ? 6 : 5) : currentView === "all" ? 4 : 3}
                 className="p-6 text-center text-samoo-gray-medium italic"
               >
                 등록된 용어가 없습니다.
@@ -120,7 +113,6 @@ export function GlossaryTable({
             terms.map((term, index) => {
               let termIdForScroll: string | undefined
               if (currentView === "all") {
-                // Check if this is the first term for its discipline in the *currently displayed* terms
                 const prevTerm = terms[index - 1]
                 if (index === 0 || prevTerm.discipline !== term.discipline) {
                   termIdForScroll = `term-discipline-${disciplineMap[term.discipline].abbreviation}`
@@ -130,7 +122,7 @@ export function GlossaryTable({
               return (
                 <tr
                   key={term.id}
-                  id={termIdForScroll} // Add ID here for scrolling in "all" view
+                  id={termIdForScroll}
                   className={cn(
                     "border-b border-samoo-gray-light last:border-b-0",
                     highlightedTermId === term.id ? "bg-yellow-100" : "hover:bg-samoo-gray-light/30",
@@ -138,7 +130,7 @@ export function GlossaryTable({
                   style={{ backgroundColor: discipline ? disciplineMap[discipline].color : undefined }}
                 >
                   {isVocabularyMode && (
-                    <td className="p-3 text-center">
+                    <td className="p-2 sm:p-3 text-center">
                       <Checkbox
                         checked={selectedTerms.has(term.id)}
                         onCheckedChange={(checked) => onToggleTermSelection(term.id, !!checked)}
@@ -147,20 +139,26 @@ export function GlossaryTable({
                     </td>
                   )}
                   {currentView === "all" && (
-                    <td className="p-3 text-sm text-samoo-gray">{disciplineMap[term.discipline].abbreviation}</td>
+                    <td className="p-2 sm:p-3 text-xs sm:text-sm text-samoo-gray">
+                      <span className="px-1 py-0.5 bg-samoo-blue/10 text-samoo-blue rounded text-xs">
+                        {disciplineMap[term.discipline].abbreviation}
+                      </span>
+                    </td>
                   )}
-                  <td className="p-3 text-sm text-samoo-gray">{term.en}</td>
-                  <td className="p-3 text-sm text-samoo-gray">{term.kr}</td>
-                  <td className="p-3 text-sm text-samoo-gray">{term.description}</td>
+                  <td className="p-2 sm:p-3 text-xs sm:text-sm text-samoo-gray font-medium">{term.en}</td>
+                  <td className="p-2 sm:p-3 text-xs sm:text-sm text-samoo-gray font-medium">{term.kr}</td>
+                  <td className="p-2 sm:p-3 text-xs sm:text-sm text-samoo-gray hidden sm:table-cell">
+                    {term.description}
+                  </td>
                   {isVocabularyMode && isAdmin && (
-                    <td className="p-3 text-center">
+                    <td className="p-2 sm:p-3 text-center">
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6 text-red-500 hover:bg-red-100"
                         onClick={() => onDeleteTerm(term.id)}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                         <span className="sr-only">용어 삭제</span>
                       </Button>
                     </td>
@@ -179,30 +177,26 @@ export function GlossaryTable({
   }
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8 sm:space-y-10">
       {disciplines.map((discipline) => {
         const termsInDiscipline = glossary.filter((term) => term.discipline === discipline)
-        // Always render the discipline section, even if empty
         const { koreanName, englishName, color } = disciplineMap[discipline]
 
         return (
           <div key={discipline} id={`discipline-${discipline}`} ref={(el) => (disciplineRefs.current[discipline] = el)}>
-            <div className="flex items-center justify-between mb-4">
-              <h2
-                className="text-xl font-bold text-samoo-blue flex items-baseline gap-2"
-                style={{ color: color.replace("bg-", "#") }}
-              >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
+              <h2 className="text-lg sm:text-xl font-bold text-samoo-blue flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2">
                 <span>{koreanName}</span>
-                <span className="text-base font-medium text-samoo-gray-medium">{englishName}</span>
+                <span className="text-sm sm:text-base font-medium text-samoo-gray-medium">{englishName}</span>
               </h2>
               <Button
                 onClick={() => handleDownloadDiscipline(discipline)}
                 className={cn(
-                  "px-3 py-1 text-sm rounded-md transition-colors flex items-center gap-1",
-                  "bg-samoo-blue text-white hover:bg-samoo-blue-dark", // Unified color with header download button
+                  "px-3 py-1 text-sm rounded-md transition-colors flex items-center gap-1 self-start sm:self-auto",
+                  "bg-samoo-blue text-white hover:bg-samoo-blue-dark",
                 )}
               >
-                <Download className="w-4 h-4" />
+                <Download className="w-3 h-3 sm:w-4 sm:h-4" />
                 Excel
               </Button>
             </div>

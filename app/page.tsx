@@ -13,20 +13,18 @@ import { UserManualContent } from "@/components/user-manual"
 import { HelpCircle } from "lucide-react"
 import { getGlossaryTerms, deleteGlossaryTerm, addGlossaryTerm } from "./actions"
 import { useToast } from "@/hooks/use-toast"
-// import { useRouter } from "next/navigation" // No longer redirecting unauthenticated users from main page
 
 export default function Home() {
   const [glossary, setGlossary] = useState<GlossaryTerm[]>([])
   const [currentView, setCurrentView] = useState<"discipline" | "all">("discipline")
   const [isVocabularyMode, setIsVocabularyMode] = useState(false)
-  const [selectedTerms, setSelectedTerms] = new Set<string>()
+  const [selectedTerms, setSelectedTerms] = useState(new Set<string>()) // Fixed: use useState instead of direct assignment
   const [highlightedTermId, setHighlightedTermId] = useState<string | null>(null)
   const [isManualOpen, setIsManualOpen] = useState(false)
   const [activeDisciplineForScroll, setActiveDisciplineForScroll] = useState<Discipline | null>(null)
   const [isAdmin, setIsAdmin] = useState(true) // Always true since anyone can be admin now
   const [isAuthenticated, setIsAuthenticated] = useState(true) // Always true
   const { toast } = useToast()
-  // const router = useRouter() // No longer needed for redirect
 
   useEffect(() => {
     async function fetchInitialData() {
@@ -45,7 +43,7 @@ export default function Home() {
       }
     }
     fetchInitialData()
-  }, [])
+  }, [toast]) // Add toast to dependencies
 
   const sortGlossaryTerms = (terms: GlossaryTerm[], isAdminView: boolean) => {
     if (isAdminView) {
@@ -90,8 +88,13 @@ export default function Home() {
         title: "성공",
         description: result.message,
       })
-      // No need to update local state immediately, revalidatePath will handle it
-      // For pending terms, they won't appear until approved by admin
+      // Refresh the data after adding
+      try {
+        const fetchedTerms = await getGlossaryTerms(undefined, true)
+        setGlossary(sortGlossaryTerms(fetchedTerms, true))
+      } catch (error) {
+        console.error("Error refreshing data:", error)
+      }
     } else {
       toast({
         title: "오류",
@@ -129,8 +132,15 @@ export default function Home() {
     if (addedCount > 0) {
       toast({
         title: "업로드 완료",
-        description: `${addedCount}개의 용어가 추가되었습니다. 관리자 승인 후 표시됩니다.`,
+        description: `${addedCount}개의 용어가 추가되었습니다.`,
       })
+      // Refresh the data after adding multiple terms
+      try {
+        const fetchedTerms = await getGlossaryTerms(undefined, true)
+        setGlossary(sortGlossaryTerms(fetchedTerms, true))
+      } catch (error) {
+        console.error("Error refreshing data:", error)
+      }
     }
     if (duplicateCount > 0) {
       toast({
@@ -239,7 +249,6 @@ export default function Home() {
         onAddTerm={handleAddTerm}
         onAddTermsFromText={handleAddTermsFromText}
         existingGlossary={glossary}
-        // isAuthenticated={isAuthenticated} // Removed this prop
       />
 
       <DisciplineShortcuts

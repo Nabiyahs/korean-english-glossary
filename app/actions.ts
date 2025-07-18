@@ -179,3 +179,65 @@ export async function rejectGlossaryTerm(id: string) {
   revalidatePath("/")
   return { success: true, message: "용어가 성공적으로 거부되었습니다." }
 }
+
+export async function approveAllTerms() {
+  const supabase = createClient()
+
+  // Get all pending terms first
+  const { data: pendingTerms, error: fetchError } = await supabase
+    .from("glossary_terms")
+    .select("id")
+    .eq("status", "pending")
+
+  if (fetchError) {
+    console.error("Error fetching pending terms:", fetchError)
+    return { success: false, message: "대기 중인 용어를 가져오는 중 오류가 발생했습니다." }
+  }
+
+  if (!pendingTerms || pendingTerms.length === 0) {
+    return { success: false, message: "승인할 대기 중인 용어가 없습니다." }
+  }
+
+  // Update all pending terms to approved
+  const { error } = await supabase.from("glossary_terms").update({ status: "approved" }).eq("status", "pending")
+
+  if (error) {
+    console.error("Error approving all terms:", error)
+    return { success: false, message: error.message }
+  }
+
+  revalidatePath("/")
+  revalidatePath("/admin")
+  return { success: true, message: `${pendingTerms.length}개의 용어가 모두 승인되었습니다.` }
+}
+
+export async function rejectAllTerms() {
+  const supabase = createClient()
+
+  // Get all pending terms first to count them
+  const { data: pendingTerms, error: fetchError } = await supabase
+    .from("glossary_terms")
+    .select("id")
+    .eq("status", "pending")
+
+  if (fetchError) {
+    console.error("Error fetching pending terms:", fetchError)
+    return { success: false, message: "대기 중인 용어를 가져오는 중 오류가 발생했습니다." }
+  }
+
+  if (!pendingTerms || pendingTerms.length === 0) {
+    return { success: false, message: "거부할 대기 중인 용어가 없습니다." }
+  }
+
+  // Delete all pending terms
+  const { error } = await supabase.from("glossary_terms").delete().eq("status", "pending")
+
+  if (error) {
+    console.error("Error rejecting all terms:", error)
+    return { success: false, message: error.message }
+  }
+
+  revalidatePath("/admin")
+  revalidatePath("/")
+  return { success: true, message: `${pendingTerms.length}개의 용어가 모두 거부되었습니다.` }
+}

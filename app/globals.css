@@ -82,7 +82,7 @@
   }
   50% {
     background-color: #fffacd;
-  } /* Light yellow */
+  }
   100% {
     background-color: transparent;
   }
@@ -90,4 +90,32 @@
 
 .highlight-animation {
   animation: highlight 2s ease-in-out;
+}
+
+/* Hide scrollbar for mobile discipline shortcuts */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 640px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /* Improve touch targets on mobile */
+  button {
+    min-height: 44px;
+  }
+
+  /* Better spacing for mobile */
+  .space-y-8 > * + * {
+    margin-top: 1.5rem;
+  }
 }

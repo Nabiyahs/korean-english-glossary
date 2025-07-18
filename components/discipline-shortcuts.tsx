@@ -22,14 +22,14 @@ interface DisciplineShortcutsProps {
   disciplines: Discipline[]
   onScrollToDiscipline: (discipline: Discipline) => void
   currentView: "discipline" | "all"
-  activeDisciplineForScroll: Discipline | null // New prop for active state
+  activeDisciplineForScroll: Discipline | null
 }
 
 const disciplineIcons: Record<Discipline, React.ElementType> = {
   "프로젝트 일반 용어": Briefcase,
   Architecture: Building,
   Electrical: Zap,
-  Piping: Pipe, // Updated icon
+  Piping: Pipe,
   Civil: Mountain,
   "Instrument & Control": Gauge,
   "Fire Protection": FireExtinguisher,
@@ -45,29 +45,58 @@ export function DisciplineShortcuts({
   activeDisciplineForScroll,
 }: DisciplineShortcutsProps) {
   return (
-    <div className="mb-8 flex flex-wrap gap-2">
-      {disciplines.map((discipline) => {
-        const Icon = disciplineIcons[discipline]
-        const koreanName = disciplineMap[discipline].koreanName
+    <div className="mb-6 sm:mb-8">
+      {/* Mobile: Horizontal scroll */}
+      <div className="sm:hidden">
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          {disciplines.map((discipline) => {
+            const Icon = disciplineIcons[discipline]
+            const koreanName = disciplineMap[discipline].koreanName
+            const isActive = activeDisciplineForScroll === discipline
 
-        const isActive = activeDisciplineForScroll === discipline
+            return (
+              <Button
+                key={discipline}
+                onClick={() => onScrollToDiscipline(discipline)}
+                className={cn(
+                  "px-3 py-2 text-xs font-medium rounded-full transition-colors flex items-center gap-1 whitespace-nowrap flex-shrink-0",
+                  isActive
+                    ? "bg-samoo-blue text-white border-samoo-blue hover:bg-samoo-blue-dark"
+                    : "bg-samoo-gray-button-default text-samoo-gray-medium border-samoo-gray-light hover:bg-samoo-gray-button-hover",
+                )}
+              >
+                <Icon className="w-3 h-3" />
+                {koreanName}
+              </Button>
+            )
+          })}
+        </div>
+      </div>
 
-        return (
-          <Button
-            key={discipline}
-            onClick={() => onScrollToDiscipline(discipline)}
-            className={cn(
-              "px-4 py-2 text-sm font-medium rounded-full transition-colors flex items-center gap-2",
-              isActive
-                ? "bg-samoo-blue text-white border-samoo-blue hover:bg-samoo-blue-dark" // Active state uses primary blue
-                : "bg-samoo-gray-button-default text-samoo-gray-medium border-samoo-gray-light hover:bg-samoo-gray-button-hover", // Inactive state uses neutral gray
-            )}
-          >
-            <Icon className="w-4 h-4" />
-            {koreanName}
-          </Button>
-        )
-      })}
+      {/* Desktop: Flex wrap */}
+      <div className="hidden sm:flex flex-wrap gap-2">
+        {disciplines.map((discipline) => {
+          const Icon = disciplineIcons[discipline]
+          const koreanName = disciplineMap[discipline].koreanName
+          const isActive = activeDisciplineForScroll === discipline
+
+          return (
+            <Button
+              key={discipline}
+              onClick={() => onScrollToDiscipline(discipline)}
+              className={cn(
+                "px-4 py-2 text-sm font-medium rounded-full transition-colors flex items-center gap-2",
+                isActive
+                  ? "bg-samoo-blue text-white border-samoo-blue hover:bg-samoo-blue-dark"
+                  : "bg-samoo-gray-button-default text-samoo-gray-medium border-samoo-gray-light hover:bg-samoo-gray-button-hover",
+              )}
+            >
+              <Icon className="w-4 h-4" />
+              {koreanName}
+            </Button>
+          )
+        })}
+      </div>
     </div>
   )
 }

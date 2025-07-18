@@ -1,6 +1,7 @@
-import { getGlossaryTerms, approveGlossaryTerm, rejectGlossaryTerm } from "../actions"
+import { getGlossaryTerms, approveGlossaryTerm, rejectGlossaryTerm, approveAllTerms, rejectAllTerms } from "../actions"
 import { disciplineMap } from "@/lib/data"
 import { AdminActionButtons } from "@/components/admin-action-buttons"
+import { AdminBulkActions } from "@/components/admin-bulk-actions"
 
 export default async function AdminPage() {
   // Remove all authentication checks - anyone can access this page
@@ -16,7 +17,17 @@ export default async function AdminPage() {
 
       {/* Pending Terms Section */}
       <section className="mb-12">
-        <h2 className="text-2xl font-semibold text-samoo-gray mb-4">승인 대기 용어 ({pendingTerms.length}개)</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-semibold text-samoo-gray">승인 대기 용어 ({pendingTerms.length}개)</h2>
+          {pendingTerms.length > 0 && (
+            <AdminBulkActions
+              pendingCount={pendingTerms.length}
+              onApproveAll={approveAllTerms}
+              onRejectAll={rejectAllTerms}
+            />
+          )}
+        </div>
+
         {pendingTerms.length === 0 ? (
           <div className="bg-samoo-gray-light/30 rounded-lg p-6 text-center">
             <p className="text-samoo-gray-medium italic">승인 대기 중인 용어가 없습니다.</p>
