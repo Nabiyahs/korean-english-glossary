@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   title: "한영 기술용어집",
   description: "SAMOO 하이테크 1본부 기술용어집",
     generator: 'v0.dev'
+  // Trigger new deployment
 }
 
 export default async function RootLayout({
