@@ -1,5 +1,7 @@
 "use client"
 import { useState } from "react"
+import type React from "react"
+
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -16,12 +18,14 @@ interface TermInputFormProps {
   existingGlossary: GlossaryTerm[]
 }
 
-export function TermInputForm({ onAddTerm, onClose, existingGlossary }: TermInputFormProps) {
+export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existingGlossary }: TermInputFormProps) {
   /* ─────────────────────────── state ─────────────────────────── */
   const [enTerm, setEnTerm] = useState("")
   const [krTerm, setKrTerm] = useState("")
   const [description, setDescription] = useState("")
   const [selectedDiscipline, setSelectedDiscipline] = useState<Discipline | null>(null)
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [isProcessingFile, setIsProcessingFile] = useState(false)
 
   const disciplines = Object.keys(disciplineMap) as Discipline[]
   const { toast } = useToast()
@@ -60,6 +64,112 @@ export function TermInputForm({ onAddTerm, onClose, existingGlossary }: TermInpu
     } else {
       alert("모든 필수 필드를 채워주세요 (English, 한국어, 공종).")
     }
+  }
+
+  /* ───────────────────────── file upload ──────────────────── */
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setUploadedFile(file)
+    setIsProcessingFile(true)
+
+    try {
+      const text = await file.text()
+      const lines = text.split("\n").filter((line) => line.trim() !== "")
+
+      // Skip header line if it exists
+      const dataLines =
+        lines[0].includes("공종") || lines[0].includes("EN") || lines[0].includes("KR") ? lines.slice(1) : lines
+
+      const terms: Omit<GlossaryTerm, "id" | "abbreviation" | "status" | "created_at" | "created_by">[] = []
+
+      for (const line of dataLines) {
+        const parts = line.split("\t").map((part) => part.trim())
+        if (parts.length >= 3) {
+          const [disciplineAbbr, en, kr, description = ""] = parts
+
+          // Map abbreviation to full discipline name
+          const discipline = Object.keys(disciplineMap).find(
+            (key) => disciplineMap[key as Discipline].abbreviation === disciplineAbbr,
+          ) as Discipline | undefined
+
+          if (discipline && en && kr) {
+            terms.push({
+              en: en.trim(),
+              kr: kr.trim(),
+              description: description.trim(),
+              discipline,
+            })
+          }
+        }
+      }
+
+      if (terms.length > 0) {
+        await onAddTermsFromText(terms)
+        toast({
+          title: "업로드 완료",
+          description: `${terms.length}개의 용어가 처리되었습니다.`,
+        })
+      } else {
+        toast({
+          title: "업로드 실패",
+          description: "유효한 용어를 찾을 수 없습니다. 파일 형식을 확인해주세요.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("File processing error:", error)
+      toast({
+        title: "파일 처리 오류",
+        description: "파일을 처리하는 중 오류가 발생했습니다.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsProcessingFile(false)
+      setUploadedFile(null)
+      // Reset file input
+      if (event.target) {
+        event.target.value = ""
+      }
+    }
+  }
+
+  const downloadTemplate = () => {
+    const templateContent = [
+      "공종\tEN\tKR\t설명",
+      "Gen\tProject Management\t프로젝트 관리\t프로젝트 전반적인 관리 업무",
+      "Arch\tBuilding Design\t건물 설계\t건축물의 전반적인 설계",
+      "Elec\tPower Distribution\t전력 분배\t전력을 각 구역으로 분배하는 시스템",
+      "",
+      "=== 사용 방법 ===",
+      "1. 공종 열에는 다음 약어 중 하나를 정확히 입력하세요:",
+      "   Gen: 프로젝트 일반 용어",
+      "   Arch: Architecture (건축)",
+      "   Elec: Electrical (전기)",
+      "   Piping: Piping (배관)",
+      "   Civil: Civil (토목)",
+      "   I&C: Instrument & Control (제어)",
+      "   FP: Fire Protection (소방)",
+      "   HVAC: HVAC (공조)",
+      "   Struct: Structure (구조)",
+      "   Cell: Cell (배터리)",
+      "",
+      "2. 각 열은 탭(Tab)으로 구분해주세요.",
+      "3. 영어와 한국어 용어는 필수입니다.",
+      "4. 설명은 선택사항입니다.",
+      "5. 첫 번째 행(헤더)은 삭제하지 마세요.",
+    ].join("\n")
+
+    const blob = new Blob([templateContent], { type: "text/plain;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = "SAMOO_용어집_템플릿.txt"
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
   }
 
   /* ─────────────────────────── JSX ─────────────────────────── */
@@ -125,6 +235,34 @@ export function TermInputForm({ onAddTerm, onClose, existingGlossary }: TermInpu
                 <span className="block text-xs opacity-75">{disciplineMap[discipline].abbreviation}</span>
               </Button>
             ))}
+          </div>
+        </div>
+
+        <div>
+          <Label className="text-sm font-medium text-samoo-gray mb-3 block">텍스트 파일 업로드</Label>
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                type="button"
+                onClick={downloadTemplate}
+                className="px-4 py-2 text-sm bg-samoo-gray-light text-samoo-gray hover:bg-samoo-gray-medium/20 border border-samoo-gray-medium"
+              >
+                템플릿 다운로드
+              </Button>
+              <div className="flex-1">
+                <input
+                  type="file"
+                  accept=".txt"
+                  onChange={handleFileUpload}
+                  disabled={isProcessingFile}
+                  className="block w-full text-sm text-samoo-gray file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-samoo-blue file:text-white hover:file:bg-samoo-blue-dark file:cursor-pointer cursor-pointer"
+                />
+              </div>
+            </div>
+            {isProcessingFile && <p className="text-sm text-samoo-blue">파일을 처리하는 중...</p>}
+            <p className="text-xs text-samoo-gray-medium">
+              탭으로 구분된 텍스트 파일을 업로드하세요. 형식: 공종 → EN → KR → 설명
+            </p>
           </div>
         </div>
 

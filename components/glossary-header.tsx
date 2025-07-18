@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 import { downloadWorkbook, createBeautifulWorkbook } from "@/lib/xlsx-download"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import { TermInputForm } from "./term-input-form"
+import { toast } from "@/components/ui/use-toast"
 
 interface GlossaryHeaderProps {
   glossary: GlossaryTerm[]
@@ -60,6 +61,16 @@ export function GlossaryHeader({
   }, [searchTerm, glossary])
 
   const handleDownloadSelected = () => {
+    // Check if no terms are selected
+    if (selectedTerms.size === 0) {
+      toast({
+        title: "알림",
+        description: "선택된 단어가 없습니다.",
+        variant: "default",
+      })
+      return
+    }
+
     const termsToDownload = glossary.filter((term) => selectedTerms.has(term.id))
     const data = termsToDownload.map((term) => ({
       공종: disciplineMap[term.discipline].abbreviation,
