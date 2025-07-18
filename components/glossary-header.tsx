@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils"
 import { downloadWorkbook, createBeautifulWorkbook } from "@/lib/xlsx-download"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import { TermInputForm } from "./term-input-form"
-import { toast } from "@/components/ui/use-toast"
 
 interface GlossaryHeaderProps {
   glossary: GlossaryTerm[]
@@ -63,11 +62,8 @@ export function GlossaryHeader({
   const handleDownloadSelected = () => {
     // Check if no terms are selected
     if (selectedTerms.size === 0) {
-      toast({
-        title: "알림",
-        description: "선택된 단어가 없습니다.",
-        variant: "default",
-      })
+      // Show popup dialog instead of toast
+      alert("선택된 단어가 없습니다.")
       return
     }
 
