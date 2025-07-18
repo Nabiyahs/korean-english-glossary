@@ -1,0 +1,22 @@
+-- Seed initial glossary data (all as 'approved' by default)
+INSERT INTO public.glossary_terms (en, kr, description, discipline, abbreviation, status) VALUES
+('Project Kick-off', '프로젝트 착수', '프로젝트 시작 회의', '프로젝트 일반 용어', 'Gen', 'approved'),
+('Scope of Work', '업무 범위', '업무 범위 정의', '프로젝트 일반 용어', 'Gen', 'approved'),
+('Floor Plan', '평면도', '건물 층별 배치 도면', 'Architecture', 'Arch', 'approved'),
+('Facade', '외관', '건물 외벽 또는 정면부', 'Architecture', 'Arch', 'approved'),
+('Circuit Breaker', '회로 차단기', '회로 보호 장치', 'Electrical', 'Elec', 'approved'),
+('Voltage', '전압', '전기 전위차', 'Electrical', 'Elec', 'approved'),
+('Pipeline', '배관', '유체/가스 운반 파이프', 'Piping', 'Piping', 'approved'),
+('Valve', '밸브', '유체 흐름 제어 장치', 'Piping', 'Piping', 'approved'),
+('Foundation', '기초', '건물 하중 지지 구조물', 'Civil', 'Civil', 'approved'),
+('Excavation', '굴착', '땅 파기 작업', 'Civil', 'Civil', 'approved'),
+('Sensor', '센서', '물리량 감지 장치', 'Instrument & Control', 'I&C', 'approved'),
+('Control Panel', '제어반', '시스템 제어 및 모니터링 장치', 'Instrument & Control', 'I&C', 'approved'),
+('Sprinkler System', '스프링클러 시스템', '자동 화재 진압 시스템', 'Fire Protection', 'FP', 'approved'),
+('Fire Alarm', '화재 경보', '화재 감지 및 경보 시스템', 'Fire Protection', 'FP', 'approved'),
+('Air Handling Unit', '공기조화기', '공기 조절 및 순환 장치', 'HVAC', 'HVAC', 'approved'),
+('Ductwork', '덕트', '공기 분배 통로 시스템', 'HVAC', 'HVAC', 'approved'),
+('Beam', '보', '수평 하중 지지 구조 요소', 'Structure', 'Struct', 'approved'),
+('Column', '기둥', '수직 하중 지지 구조 요소', 'Structure', 'Struct', 'approved'),
+('Battery Cell', '배터리 셀', '전기 에너지 저장 단위', 'Cell', 'Cell', 'approved'),
+('Electrolyte', '전해액', '배터리 이온 전달 물질', 'Cell', 'Cell', 'approved');
