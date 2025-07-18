@@ -1,10 +1,17 @@
-import { getGlossaryTerms, approveGlossaryTerm, rejectGlossaryTerm, approveAllTerms, rejectAllTerms } from "../actions"
+import {
+  getGlossaryTerms,
+  approveGlossaryTerm,
+  rejectGlossaryTerm,
+  approveAllTerms,
+  rejectAllTerms,
+  deleteGlossaryTerm,
+} from "../actions"
 import { disciplineMap } from "@/lib/data"
 import { AdminActionButtons } from "@/components/admin-action-buttons"
 import { AdminBulkActions } from "@/components/admin-bulk-actions"
+import { AdminTermsTable } from "@/components/admin-terms-table"
 
 export default async function AdminPage() {
-  // Remove all authentication checks - anyone can access this page
   const pendingTerms = await getGlossaryTerms("pending")
   const allTerms = await getGlossaryTerms(undefined, true) // Get all terms for admin view
 
@@ -77,52 +84,12 @@ export default async function AdminPage() {
         <h2 className="text-2xl font-semibold text-samoo-gray mb-4">전체 용어 관리 ({allTerms.length}개)</h2>
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
           <p className="text-blue-800 text-sm">
-            💡 <strong>팁:</strong> 메인 페이지에서 "단어장 생성" 모드를 활성화하면 개별 용어를 선택하여 삭제할 수
-            있습니다.
+            💡 <strong>팁:</strong> 아래 표에서 직접 용어를 삭제할 수 있습니다. 삭제하려는 용어의 휴지통 아이콘을
+            클릭하세요.
           </p>
         </div>
 
-        <div className="overflow-x-auto rounded-lg border border-samoo-gray-light shadow-sm bg-white max-h-96">
-          <table className="w-full text-left border-collapse">
-            <thead className="sticky top-0 bg-white">
-              <tr className="bg-samoo-gray-light/50 border-b">
-                <th className="p-3 text-xs font-medium text-samoo-gray">상태</th>
-                <th className="p-3 text-xs font-medium text-samoo-gray">공종</th>
-                <th className="p-3 text-xs font-medium text-samoo-gray">English</th>
-                <th className="p-3 text-xs font-medium text-samoo-gray">한국어</th>
-                <th className="p-3 text-xs font-medium text-samoo-gray">설명</th>
-              </tr>
-            </thead>
-            <tbody>
-              {allTerms.map((term) => (
-                <tr
-                  key={term.id}
-                  className={`border-b border-samoo-gray-light/50 hover:bg-samoo-gray-light/20 ${
-                    term.status === "pending" ? "bg-yellow-50/50" : ""
-                  }`}
-                >
-                  <td className="p-3 text-xs">
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${
-                        term.status === "pending" ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-800"
-                      }`}
-                    >
-                      {term.status === "pending" ? "대기" : "승인"}
-                    </span>
-                  </td>
-                  <td className="p-3 text-xs">
-                    <span className="px-2 py-1 bg-samoo-blue/10 text-samoo-blue rounded text-xs">
-                      {disciplineMap[term.discipline].abbreviation}
-                    </span>
-                  </td>
-                  <td className="p-3 text-xs text-samoo-gray">{term.en}</td>
-                  <td className="p-3 text-xs text-samoo-gray">{term.kr}</td>
-                  <td className="p-3 text-xs text-samoo-gray-medium">{term.description || "설명 없음"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <AdminTermsTable terms={allTerms} onDeleteTerm={deleteGlossaryTerm} />
       </section>
     </div>
   )

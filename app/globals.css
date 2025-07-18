@@ -92,29 +92,79 @@
   animation: highlight 2s ease-in-out;
 }
 
-/* Hide scrollbar for mobile discipline shortcuts */
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-
-/* Mobile-specific improvements */
+/* Mobile-specific improvements - only apply on small screens */
 @media (max-width: 640px) {
   .container {
     padding-left: 1rem;
     padding-right: 1rem;
   }
 
-  /* Improve touch targets on mobile */
+  /* Mobile-optimized header */
+  .glossary-header-mobile {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .glossary-header-mobile .search-container {
+    width: 100%;
+  }
+
+  .glossary-header-mobile .controls {
+    flex-direction: column;
+    width: 100%;
+    gap: 0.5rem;
+  }
+
+  .glossary-header-mobile .view-toggle {
+    width: 100%;
+  }
+
+  .glossary-header-mobile .view-toggle button {
+    flex: 1;
+    font-size: 0.875rem;
+  }
+
+  /* Mobile discipline shortcuts */
+  .discipline-shortcuts-mobile {
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .discipline-shortcuts-mobile::-webkit-scrollbar {
+    display: none;
+  }
+
+  .discipline-shortcuts-mobile .shortcuts-container {
+    display: flex;
+    gap: 0.5rem;
+    white-space: nowrap;
+  }
+
+  .discipline-shortcuts-mobile button {
+    flex-shrink: 0;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+  }
+
+  /* Mobile table optimizations */
+  .mobile-table th,
+  .mobile-table td {
+    padding: 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .mobile-table .description-column {
+    display: none;
+  }
+
+  /* Better touch targets on mobile */
   button {
     min-height: 44px;
   }
 
-  /* Better spacing for mobile */
+  /* Improve mobile spacing */
   .space-y-8 > * + * {
     margin-top: 1.5rem;
   }

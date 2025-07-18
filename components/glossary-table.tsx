@@ -75,12 +75,12 @@ export function GlossaryTable({
 
   const renderTable = (terms: GlossaryTerm[], discipline?: Discipline) => (
     <div className="overflow-x-auto rounded-lg border border-samoo-gray-light shadow-sm bg-white">
-      <table className="w-full text-left border-collapse">
+      <table className="w-full text-left border-collapse table-fixed">
         {/* HEADER ROW */}
         <thead>
           <tr className="bg-samoo-gray-light/50">
             {isVocabularyMode && (
-              <th className="p-2 sm:p-3 w-[40px] sm:w-[5%] text-center">
+              <th className="p-3 w-[5%] text-center rounded-tl-lg">
                 {discipline && (
                   <Checkbox
                     checked={isAllSelectedInDiscipline(discipline)}
@@ -90,13 +90,11 @@ export function GlossaryTable({
                 )}
               </th>
             )}
-            {currentView === "all" && (
-              <th className="p-2 sm:p-3 text-xs sm:text-sm font-medium text-samoo-gray w-[60px] sm:w-[15%]">구분</th>
-            )}
-            <th className="p-2 sm:p-3 text-xs sm:text-sm font-medium text-samoo-gray">EN</th>
-            <th className="p-2 sm:p-3 text-xs sm:text-sm font-medium text-samoo-gray">KR</th>
-            <th className="p-2 sm:p-3 text-xs sm:text-sm font-medium text-samoo-gray hidden sm:table-cell">설명</th>
-            {isVocabularyMode && isAdmin && <th className="p-2 sm:p-3 w-[40px] sm:w-[5%] text-center" />}
+            {currentView === "all" && <th className="p-3 text-sm font-medium text-samoo-gray w-[15%]">구분</th>}
+            <th className="p-3 text-sm font-medium text-samoo-gray w-[20%]">EN</th>
+            <th className="p-3 text-sm font-medium text-samoo-gray w-[20%]">KR</th>
+            <th className="p-3 text-sm font-medium text-samoo-gray w-[35%]">설명</th>
+            {isVocabularyMode && isAdmin && <th className="p-3 w-[5%] text-center rounded-tr-lg" />}
           </tr>
         </thead>
         <tbody>
@@ -130,7 +128,7 @@ export function GlossaryTable({
                   style={{ backgroundColor: discipline ? disciplineMap[discipline].color : undefined }}
                 >
                   {isVocabularyMode && (
-                    <td className="p-2 sm:p-3 text-center">
+                    <td className="p-3 text-center">
                       <Checkbox
                         checked={selectedTerms.has(term.id)}
                         onCheckedChange={(checked) => onToggleTermSelection(term.id, !!checked)}
@@ -139,26 +137,20 @@ export function GlossaryTable({
                     </td>
                   )}
                   {currentView === "all" && (
-                    <td className="p-2 sm:p-3 text-xs sm:text-sm text-samoo-gray">
-                      <span className="px-1 py-0.5 bg-samoo-blue/10 text-samoo-blue rounded text-xs">
-                        {disciplineMap[term.discipline].abbreviation}
-                      </span>
-                    </td>
+                    <td className="p-3 text-sm text-samoo-gray">{disciplineMap[term.discipline].abbreviation}</td>
                   )}
-                  <td className="p-2 sm:p-3 text-xs sm:text-sm text-samoo-gray font-medium">{term.en}</td>
-                  <td className="p-2 sm:p-3 text-xs sm:text-sm text-samoo-gray font-medium">{term.kr}</td>
-                  <td className="p-2 sm:p-3 text-xs sm:text-sm text-samoo-gray hidden sm:table-cell">
-                    {term.description}
-                  </td>
+                  <td className="p-3 text-sm text-samoo-gray">{term.en}</td>
+                  <td className="p-3 text-sm text-samoo-gray">{term.kr}</td>
+                  <td className="p-3 text-sm text-samoo-gray">{term.description}</td>
                   {isVocabularyMode && isAdmin && (
-                    <td className="p-2 sm:p-3 text-center">
+                    <td className="p-3 text-center">
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6 text-red-500 hover:bg-red-100"
                         onClick={() => onDeleteTerm(term.id)}
                       >
-                        <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <Trash2 className="h-4 w-4" />
                         <span className="sr-only">용어 삭제</span>
                       </Button>
                     </td>
@@ -177,26 +169,29 @@ export function GlossaryTable({
   }
 
   return (
-    <div className="space-y-8 sm:space-y-10">
+    <div className="space-y-10">
       {disciplines.map((discipline) => {
         const termsInDiscipline = glossary.filter((term) => term.discipline === discipline)
         const { koreanName, englishName, color } = disciplineMap[discipline]
 
         return (
           <div key={discipline} id={`discipline-${discipline}`} ref={(el) => (disciplineRefs.current[discipline] = el)}>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
-              <h2 className="text-lg sm:text-xl font-bold text-samoo-blue flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2">
+            <div className="flex items-center justify-between mb-4">
+              <h2
+                className="text-xl font-bold text-samoo-blue flex items-baseline gap-2"
+                style={{ color: color.replace("bg-", "#") }}
+              >
                 <span>{koreanName}</span>
-                <span className="text-sm sm:text-base font-medium text-samoo-gray-medium">{englishName}</span>
+                <span className="text-base font-medium text-samoo-gray-medium">{englishName}</span>
               </h2>
               <Button
                 onClick={() => handleDownloadDiscipline(discipline)}
                 className={cn(
-                  "px-3 py-1 text-sm rounded-md transition-colors flex items-center gap-1 self-start sm:self-auto",
+                  "px-3 py-1 text-sm rounded-md transition-colors flex items-center gap-1",
                   "bg-samoo-blue text-white hover:bg-samoo-blue-dark",
                 )}
               >
-                <Download className="w-3 h-3 sm:w-4 sm:h-4" />
+                <Download className="w-4 h-4" />
                 Excel
               </Button>
             </div>
