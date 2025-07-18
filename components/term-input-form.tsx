@@ -76,16 +76,12 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
 
     try {
       const text = await file.text()
-      const lines = text.split("\n").filter((line) => line.trim() !== "")
-
-      // Skip header line if it exists
-      const dataLines =
-        lines[0].includes("공종") || lines[0].includes("EN") || lines[0].includes("KR") ? lines.slice(1) : lines
+      const lines = text.split("\n").filter((line) => line.trim() !== "" && !line.includes("==="))
 
       const terms: Omit<GlossaryTerm, "id" | "abbreviation" | "status" | "created_at" | "created_by">[] = []
 
-      for (const line of dataLines) {
-        const parts = line.split("\t").map((part) => part.trim())
+      for (const line of lines) {
+        const parts = line.split("/").map((part) => part.trim())
         if (parts.length >= 3) {
           const [disciplineAbbr, en, kr, description = ""] = parts
 
@@ -137,10 +133,9 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
 
   const downloadTemplate = () => {
     const templateContent = [
-      "공종\tEN\tKR\t설명",
-      "Gen\tProject Management\t프로젝트 관리\t프로젝트 전반적인 관리 업무",
-      "Arch\tBuilding Design\t건물 설계\t건축물의 전반적인 설계",
-      "Elec\tPower Distribution\t전력 분배\t전력을 각 구역으로 분배하는 시스템",
+      "Gen/Project Management/프로젝트 관리/프로젝트 전반적인 관리 업무",
+      "Arch/Building Design/건물 설계/건축물의 전반적인 설계",
+      "Elec/Power Distribution/전력 분배/전력을 각 구역으로 분배하는 시스템",
       "",
       "=== 사용 방법 ===",
       "1. 공종 열에는 다음 약어 중 하나를 정확히 입력하세요:",
@@ -155,10 +150,10 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
       "   Struct: Structure (구조)",
       "   Cell: Cell (배터리)",
       "",
-      "2. 각 열은 탭(Tab)으로 구분해주세요.",
-      "3. 영어와 한국어 용어는 필수입니다.",
-      "4. 설명은 선택사항입니다.",
-      "5. 첫 번째 행(헤더)은 삭제하지 마세요.",
+      "2. 각 필드는 슬래시(/)로 구분해주세요.",
+      "3. 형식: 공종/EN/KR/설명",
+      "4. 영어와 한국어 용어는 필수입니다.",
+      "5. 설명은 선택사항입니다.",
     ].join("\n")
 
     const blob = new Blob([templateContent], { type: "text/plain;charset=utf-8" })
@@ -261,7 +256,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
             </div>
             {isProcessingFile && <p className="text-sm text-samoo-blue">파일을 처리하는 중...</p>}
             <p className="text-xs text-samoo-gray-medium">
-              탭으로 구분된 텍스트 파일을 업로드하세요. 형식: 공종 → EN → KR → 설명
+              슬래시(/)로 구분된 텍스트 파일을 업로드하세요. 형식: 공종/EN/KR/설명
             </p>
           </div>
         </div>
