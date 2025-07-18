@@ -81,16 +81,17 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
       const terms: Omit<GlossaryTerm, "id" | "abbreviation" | "status" | "created_at" | "created_by">[] = []
 
       for (const line of lines) {
+        // Split by "/" and trim whitespace from each part
         const parts = line.split("/").map((part) => part.trim())
         if (parts.length >= 3) {
           const [disciplineAbbr, en, kr, description = ""] = parts
 
           // Map abbreviation to full discipline name
           const discipline = Object.keys(disciplineMap).find(
-            (key) => disciplineMap[key as Discipline].abbreviation === disciplineAbbr,
+            (key) => disciplineMap[key as Discipline].abbreviation === disciplineAbbr.trim(),
           ) as Discipline | undefined
 
-          if (discipline && en && kr) {
+          if (discipline && en.trim() && kr.trim()) {
             terms.push({
               en: en.trim(),
               kr: kr.trim(),
@@ -133,9 +134,11 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
 
   const downloadTemplate = () => {
     const templateContent = [
-      "Gen/Project Management/프로젝트 관리/프로젝트 전반적인 관리 업무",
-      "Arch/Building Design/건물 설계/건축물의 전반적인 설계",
-      "Elec/Power Distribution/전력 분배/전력을 각 구역으로 분배하는 시스템",
+      "Gen / Project Management / 프로젝트 관리 / 프로젝트 전반적인 관리 업무",
+      "Arch / Building Design / 건물 설계 / 건축물의 전반적인 설계",
+      "Elec / Power Distribution / 전력 분배 / 전력을 각 구역으로 분배하는 시스템",
+      "Piping / Pipeline / 배관 / 유체를 운반하는 관로 시스템",
+      "Civil / Foundation / 기초 / 건물의 하중을 지반에 전달하는 구조물",
       "",
       "=== 사용 방법 ===",
       "1. 공종 열에는 다음 약어 중 하나를 정확히 입력하세요:",
@@ -151,9 +154,15 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
       "   Cell: Cell (배터리)",
       "",
       "2. 각 필드는 슬래시(/)로 구분해주세요.",
-      "3. 형식: 공종/EN/KR/설명",
-      "4. 영어와 한국어 용어는 필수입니다.",
-      "5. 설명은 선택사항입니다.",
+      "3. 형식: 공종 / EN / KR / 설명",
+      "4. 슬래시 앞뒤의 공백은 자동으로 제거됩니다.",
+      "5. 영어와 한국어 용어는 필수입니다.",
+      "6. 설명은 선택사항입니다.",
+      "",
+      "예시:",
+      "Gen/Project Management/프로젝트 관리/설명",
+      "Gen / Project Management / 프로젝트 관리 / 설명",
+      "위 두 형식 모두 동일하게 처리됩니다.",
     ].join("\n")
 
     const blob = new Blob([templateContent], { type: "text/plain;charset=utf-8" })
@@ -256,7 +265,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
             </div>
             {isProcessingFile && <p className="text-sm text-samoo-blue">파일을 처리하는 중...</p>}
             <p className="text-xs text-samoo-gray-medium">
-              슬래시(/)로 구분된 텍스트 파일을 업로드하세요. 형식: 공종/EN/KR/설명
+              슬래시(/)로 구분된 텍스트 파일을 업로드하세요. 공백은 자동으로 제거됩니다.
             </p>
           </div>
         </div>
