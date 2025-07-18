@@ -5,6 +5,9 @@ import {
   approveAllTerms,
   rejectAllTerms,
   deleteGlossaryTerm,
+  deleteMultipleTerms,
+  deleteAllTerms,
+  updateGlossaryTerm,
 } from "../actions"
 import { disciplineMap } from "@/lib/data"
 import { AdminActionButtons } from "@/components/admin-action-buttons"
@@ -84,12 +87,18 @@ export default async function AdminPage() {
         <h2 className="text-2xl font-semibold text-samoo-gray mb-4">전체 용어 관리 ({allTerms.length}개)</h2>
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
           <p className="text-blue-800 text-sm">
-            💡 <strong>팁:</strong> 아래 표에서 직접 용어를 삭제할 수 있습니다. 삭제하려는 용어의 휴지통 아이콘을
-            클릭하세요.
+            💡 <strong>새로운 기능:</strong> 체크박스로 여러 용어를 선택하여 일괄 삭제하거나, 개별 용어를 수정할 수
+            있습니다. 연필 아이콘을 클릭하면 용어를 수정할 수 있습니다.
           </p>
         </div>
 
-        <AdminTermsTable terms={allTerms} onDeleteTerm={deleteGlossaryTerm} />
+        <AdminTermsTable
+          terms={allTerms}
+          onDeleteTerm={deleteGlossaryTerm}
+          onDeleteMultiple={deleteMultipleTerms}
+          onDeleteAll={deleteAllTerms}
+          onUpdateTerm={updateGlossaryTerm}
+        />
       </section>
     </div>
   )

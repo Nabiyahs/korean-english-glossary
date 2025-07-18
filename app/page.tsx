@@ -213,27 +213,36 @@ export default function Home() {
   const disciplines = Object.keys(disciplineMap) as Discipline[]
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center justify-center mb-10 relative">
-        <h1 className="text-4xl font-extrabold text-center text-samoo-blue leading-tight tracking-tight">
-          English-Korean Technical Glossary
-          <br />
-          <span className="text-3xl font-semibold text-samoo-gray-medium mt-1 block">한영 기술용어집</span>
-        </h1>
-        <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
-          <DialogTrigger asChild>
-            <Button
-              variant="outline"
-              className="absolute right-0 top-1/2 -translate-y-1/2 px-3 py-1 text-sm bg-samoo-gray-light text-samoo-gray hover:bg-samoo-gray-medium/20 border-samoo-gray-medium"
-            >
-              <HelpCircle className="w-4 h-4 mr-2" />
-              사용 설명서
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-            <UserManualContent />
-          </DialogContent>
-        </Dialog>
+    <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+      {/* Mobile-optimized title section */}
+      <div className="mb-4 sm:mb-10">
+        <div className="text-center mb-3 sm:mb-0">
+          <h1 className="text-xl sm:text-4xl font-bold sm:font-extrabold text-samoo-blue leading-tight tracking-tight">
+            English-Korean Technical Glossary
+            <br />
+            <span className="text-lg sm:text-3xl font-medium sm:font-semibold text-samoo-gray-medium mt-1 block">
+              한영 기술용어집
+            </span>
+          </h1>
+        </div>
+        {/* Help button - centered on mobile */}
+        <div className="flex justify-center sm:absolute sm:right-0 sm:top-1/2 sm:-translate-y-1/2">
+          <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="px-2 py-1 text-xs sm:px-3 sm:py-2 sm:text-sm bg-samoo-gray-light text-samoo-gray hover:bg-samoo-gray-medium/20 border-samoo-gray-medium"
+              >
+                <HelpCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                사용 설명서
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+              <UserManualContent />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <DisclaimerContact />

@@ -4,17 +4,34 @@ import { useState } from "react"
 import { type GlossaryTerm, disciplineMap } from "@/lib/data"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Trash2, Search, X } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
+import { Trash2, Search, X, Edit, Trash, CheckSquare } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { EditTermForm } from "./edit-term-form"
 
 interface AdminTermsTableProps {
   terms: GlossaryTerm[]
   onDeleteTerm: (id: string) => Promise<{ success: boolean; message: string }>
+  onDeleteMultiple: (ids: string[]) => Promise<{ success: boolean; message: string }>
+  onDeleteAll: () => Promise<{ success: boolean; message: string }>
+  onUpdateTerm: (
+    id: string,
+    updates: Partial<Pick<GlossaryTerm, "en" | "kr" | "description" | "discipline">>,
+  ) => Promise<{ success: boolean; message: string }>
 }
 
-export function AdminTermsTable({ terms, onDeleteTerm }: AdminTermsTableProps) {
+export function AdminTermsTable({
+  terms,
+  onDeleteTerm,
+  onDeleteMultiple,
+  onDeleteAll,
+  onUpdateTerm,
+}: AdminTermsTableProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [filteredTerms, setFilteredTerms] = useState(terms)
+  const [selectedTerms, setSelectedTerms] = useState<Set<string>>(new Set())
+  const [editingTerm, setEditingTerm] = useState<GlossaryTerm | null>(null)
   const { toast } = useToast()
 
   // Filter terms based on search
@@ -42,34 +59,143 @@ export function AdminTermsTable({ terms, onDeleteTerm }: AdminTermsTableProps) {
         toast({ title: "성공", description: result.message })
         // Remove from local state
         setFilteredTerms((prev) => prev.filter((term) => term.id !== id))
+        setSelectedTerms((prev) => {
+          const newSet = new Set(prev)
+          newSet.delete(id)
+          return newSet
+        })
       } else {
         toast({ title: "오류", description: result.message, variant: "destructive" })
       }
     }
   }
 
+  const handleDeleteSelected = async () => {
+    if (selectedTerms.size === 0) {
+      toast({ title: "알림", description: "삭제할 용어를 선택해주세요.", variant: "default" })
+      return
+    }
+
+    if (confirm(`선택된 ${selectedTerms.size}개의 용어를 삭제하시겠습니까?`)) {
+      const result = await onDeleteMultiple(Array.from(selectedTerms))
+      if (result.success) {
+        toast({ title: "성공", description: result.message })
+        // Remove from local state
+        setFilteredTerms((prev) => prev.filter((term) => !selectedTerms.has(term.id)))
+        setSelectedTerms(new Set())
+      } else {
+        toast({ title: "오류", description: result.message, variant: "destructive" })
+      }
+    }
+  }
+
+  const handleDeleteAll = async () => {
+    if (terms.length === 0) {
+      toast({ title: "알림", description: "삭제할 용어가 없습니다.", variant: "default" })
+      return
+    }
+
+    if (confirm(`모든 용어 (${terms.length}개)를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) {
+      const result = await onDeleteAll()
+      if (result.success) {
+        toast({ title: "성공", description: result.message })
+        setFilteredTerms([])
+        setSelectedTerms(new Set())
+      } else {
+        toast({ title: "오류", description: result.message, variant: "destructive" })
+      }
+    }
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedTerms(new Set(filteredTerms.map((term) => term.id)))
+    } else {
+      setSelectedTerms(new Set())
+    }
+  }
+
+  const handleSelectTerm = (termId: string, checked: boolean) => {
+    setSelectedTerms((prev) => {
+      const newSet = new Set(prev)
+      if (checked) {
+        newSet.add(termId)
+      } else {
+        newSet.delete(termId)
+      }
+      return newSet
+    })
+  }
+
+  const handleEdit = async (updates: Partial<Pick<GlossaryTerm, "en" | "kr" | "description" | "discipline">>) => {
+    if (!editingTerm) return
+
+    const result = await onUpdateTerm(editingTerm.id, updates)
+    if (result.success) {
+      toast({ title: "성공", description: result.message })
+      // Update local state
+      setFilteredTerms((prev) =>
+        prev.map((term) =>
+          term.id === editingTerm.id
+            ? {
+                ...term,
+                ...updates,
+                abbreviation: updates.discipline ? disciplineMap[updates.discipline].abbreviation : term.abbreviation,
+              }
+            : term,
+        ),
+      )
+      setEditingTerm(null)
+    } else {
+      toast({ title: "오류", description: result.message, variant: "destructive" })
+    }
+  }
+
+  const isAllSelected = filteredTerms.length > 0 && filteredTerms.every((term) => selectedTerms.has(term.id))
+  const isSomeSelected = filteredTerms.some((term) => selectedTerms.has(term.id))
+
   return (
     <div>
-      {/* Search Bar */}
-      <div className="relative mb-4 max-w-md">
-        <Input
-          type="text"
-          placeholder="용어 검색..."
-          className="pl-10 pr-10"
-          value={searchTerm}
-          onChange={(e) => handleSearch(e.target.value)}
-        />
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-samoo-gray-medium" />
-        {searchTerm && (
+      {/* Controls */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-4">
+        {/* Search Bar */}
+        <div className="relative flex-1 max-w-md">
+          <Input
+            type="text"
+            placeholder="용어 검색..."
+            className="pl-10 pr-10"
+            value={searchTerm}
+            onChange={(e) => handleSearch(e.target.value)}
+          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-samoo-gray-medium" />
+          {searchTerm && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
+              onClick={() => handleSearch("")}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+
+        {/* Bulk Actions */}
+        <div className="flex gap-2">
           <Button
-            variant="ghost"
-            size="sm"
-            className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
-            onClick={() => handleSearch("")}
+            onClick={handleDeleteSelected}
+            disabled={selectedTerms.size === 0}
+            variant="destructive"
+            className="px-3 py-2 text-sm"
           >
-            <X className="h-4 w-4" />
+            <CheckSquare className="w-4 h-4 mr-2" />
+            선택 삭제 ({selectedTerms.size})
           </Button>
-        )}
+          <Button onClick={handleDeleteAll} variant="destructive" className="px-3 py-2 text-sm">
+            <Trash className="w-4 h-4 mr-2" />
+            전체 삭제
+          </Button>
+        </div>
       </div>
 
       {/* Terms Table */}
@@ -77,18 +203,25 @@ export function AdminTermsTable({ terms, onDeleteTerm }: AdminTermsTableProps) {
         <table className="w-full text-left border-collapse">
           <thead className="sticky top-0 bg-white">
             <tr className="bg-samoo-gray-light/50 border-b">
+              <th className="p-3 text-xs font-medium text-samoo-gray text-center w-[40px]">
+                <Checkbox
+                  checked={isAllSelected}
+                  onCheckedChange={handleSelectAll}
+                  className={isSomeSelected && !isAllSelected ? "data-[state=indeterminate]:bg-samoo-blue" : ""}
+                />
+              </th>
               <th className="p-3 text-xs font-medium text-samoo-gray">상태</th>
               <th className="p-3 text-xs font-medium text-samoo-gray">공종</th>
               <th className="p-3 text-xs font-medium text-samoo-gray">English</th>
               <th className="p-3 text-xs font-medium text-samoo-gray">한국어</th>
               <th className="p-3 text-xs font-medium text-samoo-gray">설명</th>
-              <th className="p-3 text-xs font-medium text-samoo-gray text-center">삭제</th>
+              <th className="p-3 text-xs font-medium text-samoo-gray text-center">작업</th>
             </tr>
           </thead>
           <tbody>
             {filteredTerms.length === 0 ? (
               <tr>
-                <td colSpan={6} className="p-6 text-center text-samoo-gray-medium italic">
+                <td colSpan={7} className="p-6 text-center text-samoo-gray-medium italic">
                   {searchTerm ? "검색 결과가 없습니다." : "등록된 용어가 없습니다."}
                 </td>
               </tr>
@@ -98,8 +231,14 @@ export function AdminTermsTable({ terms, onDeleteTerm }: AdminTermsTableProps) {
                   key={term.id}
                   className={`border-b border-samoo-gray-light/50 hover:bg-samoo-gray-light/20 ${
                     term.status === "pending" ? "bg-yellow-50/50" : ""
-                  }`}
+                  } ${selectedTerms.has(term.id) ? "bg-blue-50/50" : ""}`}
                 >
+                  <td className="p-3 text-center">
+                    <Checkbox
+                      checked={selectedTerms.has(term.id)}
+                      onCheckedChange={(checked) => handleSelectTerm(term.id, !!checked)}
+                    />
+                  </td>
                   <td className="p-3 text-xs">
                     <span
                       className={`px-2 py-1 rounded text-xs font-medium ${
@@ -118,15 +257,39 @@ export function AdminTermsTable({ terms, onDeleteTerm }: AdminTermsTableProps) {
                   <td className="p-3 text-xs text-samoo-gray font-medium">{term.kr}</td>
                   <td className="p-3 text-xs text-samoo-gray-medium">{term.description || "설명 없음"}</td>
                   <td className="p-3 text-center">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-red-500 hover:bg-red-100"
-                      onClick={() => handleDelete(term.id, term.en)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      <span className="sr-only">용어 삭제</span>
-                    </Button>
+                    <div className="flex gap-1 justify-center">
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-blue-500 hover:bg-blue-100"
+                            onClick={() => setEditingTerm(term)}
+                          >
+                            <Edit className="h-4 w-4" />
+                            <span className="sr-only">용어 수정</span>
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[600px]">
+                          {editingTerm && (
+                            <EditTermForm
+                              term={editingTerm}
+                              onSave={handleEdit}
+                              onCancel={() => setEditingTerm(null)}
+                            />
+                          )}
+                        </DialogContent>
+                      </Dialog>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-red-500 hover:bg-red-100"
+                        onClick={() => handleDelete(term.id, term.en)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">용어 삭제</span>
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -138,6 +301,7 @@ export function AdminTermsTable({ terms, onDeleteTerm }: AdminTermsTableProps) {
       {searchTerm && (
         <p className="text-sm text-samoo-gray-medium mt-2">
           총 {terms.length}개 중 {filteredTerms.length}개 표시
+          {selectedTerms.size > 0 && ` (${selectedTerms.size}개 선택됨)`}
         </p>
       )}
     </div>

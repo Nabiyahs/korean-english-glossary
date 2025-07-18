@@ -130,6 +130,30 @@ export async function addGlossaryTerm(
   return { success: true, message: "용어가 성공적으로 추가되었습니다. 관리자 승인 후 표시됩니다." }
 }
 
+export async function updateGlossaryTerm(
+  id: string,
+  updates: Partial<Pick<GlossaryTerm, "en" | "kr" | "description" | "discipline">>,
+) {
+  const supabase = createClient()
+
+  // If discipline is being updated, also update the abbreviation
+  const updateData: any = { ...updates }
+  if (updates.discipline) {
+    updateData.abbreviation = disciplineMap[updates.discipline].abbreviation
+  }
+
+  const { error } = await supabase.from("glossary_terms").update(updateData).eq("id", id)
+
+  if (error) {
+    console.error("Error updating glossary term:", error)
+    return { success: false, message: error.message }
+  }
+
+  revalidatePath("/")
+  revalidatePath("/admin")
+  return { success: true, message: "용어가 성공적으로 수정되었습니다." }
+}
+
 export async function deleteGlossaryTerm(id: string) {
   const supabase = createClient()
 
@@ -144,6 +168,49 @@ export async function deleteGlossaryTerm(id: string) {
   revalidatePath("/")
   revalidatePath("/admin")
   return { success: true, message: "용어가 성공적으로 삭제되었습니다." }
+}
+
+export async function deleteMultipleTerms(ids: string[]) {
+  const supabase = createClient()
+
+  const { error } = await supabase.from("glossary_terms").delete().in("id", ids)
+
+  if (error) {
+    console.error("Error deleting multiple terms:", error)
+    return { success: false, message: error.message }
+  }
+
+  revalidatePath("/")
+  revalidatePath("/admin")
+  return { success: true, message: `${ids.length}개의 용어가 성공적으로 삭제되었습니다.` }
+}
+
+export async function deleteAllTerms() {
+  const supabase = createClient()
+
+  // Get count first
+  const { count, error: countError } = await supabase.from("glossary_terms").select("*", { count: "exact", head: true })
+
+  if (countError) {
+    console.error("Error counting terms:", countError)
+    return { success: false, message: "용어 개수를 확인하는 중 오류가 발생했습니다." }
+  }
+
+  if (!count || count === 0) {
+    return { success: false, message: "삭제할 용어가 없습니다." }
+  }
+
+  // Delete all terms
+  const { error } = await supabase.from("glossary_terms").delete().neq("id", "00000000-0000-0000-0000-000000000000") // Delete all by using a condition that matches all
+
+  if (error) {
+    console.error("Error deleting all terms:", error)
+    return { success: false, message: error.message }
+  }
+
+  revalidatePath("/")
+  revalidatePath("/admin")
+  return { success: true, message: `모든 용어 (${count}개)가 성공적으로 삭제되었습니다.` }
 }
 
 export async function approveGlossaryTerm(id: string) {

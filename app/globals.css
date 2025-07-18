@@ -92,66 +92,52 @@
   animation: highlight 2s ease-in-out;
 }
 
+/* Hide scrollbar for mobile discipline shortcuts */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Mobile-specific improvements - only apply on small screens */
 @media (max-width: 640px) {
   .container {
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
   }
 
-  /* Mobile-optimized header */
-  .glossary-header-mobile {
-    flex-direction: column;
-    gap: 1rem;
+  /* Better touch targets on mobile */
+  button {
+    min-height: 36px; /* Reduced from 44px for more compact design */
   }
 
-  .glossary-header-mobile .search-container {
-    width: 100%;
+  /* Compact mobile spacing */
+  .space-y-6 > * + * {
+    margin-top: 1rem;
   }
 
-  .glossary-header-mobile .controls {
-    flex-direction: column;
-    width: 100%;
-    gap: 0.5rem;
+  /* Mobile title optimization */
+  h1 {
+    line-height: 1.2;
   }
 
-  .glossary-header-mobile .view-toggle {
-    width: 100%;
+  h2 {
+    line-height: 1.3;
   }
 
-  .glossary-header-mobile .view-toggle button {
-    flex: 1;
-    font-size: 0.875rem;
-  }
-
-  /* Mobile discipline shortcuts */
-  .discipline-shortcuts-mobile {
-    overflow-x: auto;
-    padding-bottom: 0.5rem;
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-
-  .discipline-shortcuts-mobile::-webkit-scrollbar {
-    display: none;
-  }
-
-  .discipline-shortcuts-mobile .shortcuts-container {
-    display: flex;
-    gap: 0.5rem;
-    white-space: nowrap;
-  }
-
-  .discipline-shortcuts-mobile button {
-    flex-shrink: 0;
-    padding: 0.5rem 0.75rem;
+  /* Mobile button text sizing */
+  .text-xs {
     font-size: 0.75rem;
+    line-height: 1rem;
   }
 
   /* Mobile table optimizations */
   .mobile-table th,
   .mobile-table td {
-    padding: 0.5rem;
+    padding: 0.375rem;
     font-size: 0.75rem;
   }
 
@@ -159,13 +145,45 @@
     display: none;
   }
 
-  /* Better touch targets on mobile */
-  button {
-    min-height: 44px;
+  /* Mobile dialog optimizations */
+  .sm\:max-w-\[600px\] {
+    max-width: calc(100vw - 1.5rem);
+    margin: 0.75rem;
   }
 
-  /* Improve mobile spacing */
-  .space-y-8 > * + * {
-    margin-top: 1.5rem;
+  .sm\:max-w-\[700px\] {
+    max-width: calc(100vw - 1.5rem);
+    margin: 0.75rem;
+  }
+
+  /* Mobile input optimizations */
+  input {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+  /* Mobile card optimizations */
+  .card {
+    border-radius: 0.5rem;
+  }
+
+  /* Mobile scroll optimization */
+  .overflow-x-auto {
+    scrollbar-width: thin;
+  }
+}
+
+/* Tablet optimizations */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .container {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+/* Desktop optimizations */
+@media (min-width: 1025px) {
+  .container {
+    padding-left: 2rem;
+    padding-right: 2rem;
   }
 }
