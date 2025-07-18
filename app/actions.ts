@@ -42,19 +42,38 @@ export async function getSession() {
 
 export async function getUserRole(userId: string) {
   const supabase = createClient()
-  const { data, error } = await supabase.from("user_profiles").select("role").eq("id", userId).single()
+  console.log("DEBUG: getUserRole - Fetching role for user ID:", userId)
 
-  if (error) {
-    console.error("Error fetching user role:", error)
-    return null
+  try {
+    const { data, error } = await supabase.from("user_profiles").select("role").eq("id", userId).single()
+
+    if (error) {
+      console.error("DEBUG: getUserRole - Error fetching user role:", error)
+      return "user" // Default to 'user' role instead of null
+    }
+    console.log("DEBUG: getUserRole - User role found:", data.role)
+    return data.role || "user"
+  } catch (err) {
+    console.error("DEBUG: getUserRole - Unexpected error:", err)
+    return "user" // Default to 'user' role
   }
-  return data.role
 }
 
 export async function getGlossaryTerms(statusFilter?: "pending" | "approved", forAdmin = false) {
   const supabase = createClient()
 
   try {
+    // First, check if we can connect to Supabase
+    const { data: connectionTest, error: connectionError } = await supabase
+      .from("glossary_terms")
+      .select("count")
+      .limit(1)
+
+    if (connectionError) {
+      console.error("Supabase connection error:", connectionError)
+      return []
+    }
+
     let query = supabase.from("glossary_terms").select("*")
 
     if (!forAdmin && statusFilter) {
@@ -67,18 +86,14 @@ export async function getGlossaryTerms(statusFilter?: "pending" | "approved", fo
 
     const { data, error } = await query.order("discipline", { ascending: true }).order("en", { ascending: true })
 
-    if (error) throw error
-
-    return (data ?? []) as GlossaryTerm[]
-  } catch (err: any) {
-    if (err?.code === "42P01") {
-      console.warn(
-        "⚠️  glossary_terms table not found – returning empty list. " + "Run the provided SQL schema to create it.",
-      )
+    if (error) {
+      console.error("Error fetching glossary terms:", error)
       return []
     }
 
-    console.error("Error fetching glossary terms:", err)
+    return (data ?? []) as GlossaryTerm[]
+  } catch (err: any) {
+    console.error("Unexpected error in getGlossaryTerms:", err)
     return []
   }
 }
@@ -117,19 +132,8 @@ export async function addGlossaryTerm(
 
 export async function deleteGlossaryTerm(id: string) {
   const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
 
-  if (!user) {
-    return { success: false, message: "User not authenticated." }
-  }
-
-  const userRole = await getUserRole(user.id)
-  if (userRole !== "admin") {
-    return { success: false, message: "권한이 없습니다." }
-  }
-
+  // Remove authentication check - anyone can delete
   const { error } = await supabase.from("glossary_terms").delete().eq("id", id)
 
   if (error) {
@@ -144,26 +148,17 @@ export async function deleteGlossaryTerm(id: string) {
 
 export async function approveGlossaryTerm(id: string) {
   const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
 
-  if (!user) {
-    return { success: false, message: "User not authenticated." }
-  }
-
-  const userRole = await getUserRole(user.id)
-  if (userRole !== "admin") {
-    return { success: false, message: "권한이 없습니다." }
-  }
-
+  // Remove authentication check - anyone can approve
+  console.log("DEBUG: approveGlossaryTerm - Attempting to update glossary term status for ID:", id)
   const { error } = await supabase.from("glossary_terms").update({ status: "approved" }).eq("id", id)
 
   if (error) {
-    console.error("Error approving glossary term:", error)
+    console.error("DEBUG: approveGlossaryTerm - Error updating glossary term:", error)
     return { success: false, message: error.message }
   }
 
+  console.log("DEBUG: approveGlossaryTerm - Term approved successfully. Revalidating paths.")
   revalidatePath("/")
   revalidatePath("/admin")
   return { success: true, message: "용어가 성공적으로 승인되었습니다." }
@@ -171,20 +166,8 @@ export async function approveGlossaryTerm(id: string) {
 
 export async function rejectGlossaryTerm(id: string) {
   const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
 
-  if (!user) {
-    return { success: false, message: "User not authenticated." }
-  }
-
-  const userRole = await getUserRole(user.id)
-  if (userRole !== "admin") {
-    return { success: false, message: "권한이 없습니다." }
-  }
-
-  // For rejection, we'll just delete the term
+  // Remove authentication check - anyone can reject/delete
   const { error } = await supabase.from("glossary_terms").delete().eq("id", id)
 
   if (error) {
@@ -193,5 +176,6 @@ export async function rejectGlossaryTerm(id: string) {
   }
 
   revalidatePath("/admin")
+  revalidatePath("/")
   return { success: true, message: "용어가 성공적으로 거부되었습니다." }
 }

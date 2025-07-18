@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { UserManualContent } from "@/components/user-manual"
 import { HelpCircle } from "lucide-react"
-import { getGlossaryTerms, deleteGlossaryTerm, getSession, getUserRole, addGlossaryTerm } from "./actions"
+import { getGlossaryTerms, deleteGlossaryTerm, addGlossaryTerm } from "./actions"
 import { useToast } from "@/hooks/use-toast"
 // import { useRouter } from "next/navigation" // No longer redirecting unauthenticated users from main page
 
@@ -23,37 +23,29 @@ export default function Home() {
   const [highlightedTermId, setHighlightedTermId] = useState<string | null>(null)
   const [isManualOpen, setIsManualOpen] = useState(false)
   const [activeDisciplineForScroll, setActiveDisciplineForScroll] = useState<Discipline | null>(null)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false) // New state for authentication status
+  const [isAdmin, setIsAdmin] = useState(true) // Always true since anyone can be admin now
+  const [isAuthenticated, setIsAuthenticated] = useState(true) // Always true
   const { toast } = useToast()
   // const router = useRouter() // No longer needed for redirect
 
   useEffect(() => {
     async function fetchInitialData() {
-      const session = await getSession()
-      setIsAuthenticated(!!session)
-
-      let fetchedTerms: GlossaryTerm[] = []
-      if (session) {
-        const userRole = await getUserRole(session.user.id)
-        setIsAdmin(userRole === "admin")
-
-        if (userRole === "admin") {
-          // Admins see all terms (pending and approved)
-          fetchedTerms = await getGlossaryTerms(undefined, true)
-        } else {
-          // Regular authenticated users see only approved terms
-          fetchedTerms = await getGlossaryTerms("approved")
-        }
-      } else {
-        // Unauthenticated users see only approved terms
-        setIsAdmin(false)
-        fetchedTerms = await getGlossaryTerms("approved")
+      try {
+        // Remove session checks - just fetch all terms for admin view
+        const fetchedTerms = await getGlossaryTerms(undefined, true) // Get all terms
+        setGlossary(sortGlossaryTerms(fetchedTerms, true)) // Always use admin view
+      } catch (error) {
+        console.error("Error fetching initial data:", error)
+        setGlossary([])
+        toast({
+          title: "데이터 로딩 오류",
+          description: "용어집 데이터를 불러오는 중 오류가 발생했습니다.",
+          variant: "destructive",
+        })
       }
-      setGlossary(sortGlossaryTerms(fetchedTerms, isAdmin)) // Pass isAdmin to sorting
     }
     fetchInitialData()
-  }, [isAdmin]) // Add isAdmin to dependency array to re-sort if role changes
+  }, [])
 
   const sortGlossaryTerms = (terms: GlossaryTerm[], isAdminView: boolean) => {
     if (isAdminView) {
