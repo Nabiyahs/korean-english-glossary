@@ -32,10 +32,30 @@ export const disciplineMap: Record<
     koreanName: "일반",
     englishName: "General",
   },
-  Architecture: { abbreviation: "Arch", color: "bg-discipline-arch", koreanName: "건축", englishName: "Architecture" },
-  Electrical: { abbreviation: "Elec", color: "bg-discipline-elec", koreanName: "전기", englishName: "Electrical" },
-  Piping: { abbreviation: "Piping", color: "bg-discipline-piping", koreanName: "배관", englishName: "Piping" },
-  Civil: { abbreviation: "Civil", color: "bg-discipline-civil", koreanName: "토목", englishName: "Civil" },
+  Architecture: {
+    abbreviation: "Arch",
+    color: "bg-discipline-arch",
+    koreanName: "건축",
+    englishName: "Architecture",
+  },
+  Electrical: {
+    abbreviation: "Elec",
+    color: "bg-discipline-elec",
+    koreanName: "전기",
+    englishName: "Electrical",
+  },
+  Piping: {
+    abbreviation: "Piping",
+    color: "bg-discipline-piping",
+    koreanName: "배관",
+    englishName: "Piping",
+  },
+  Civil: {
+    abbreviation: "Civil",
+    color: "bg-discipline-civil",
+    koreanName: "토목",
+    englishName: "Civil",
+  },
   "Instrument & Control": {
     abbreviation: "I&C",
     color: "bg-discipline-ic",
@@ -48,9 +68,24 @@ export const disciplineMap: Record<
     koreanName: "소방",
     englishName: "Fire Protection",
   },
-  HVAC: { abbreviation: "HVAC", color: "bg-discipline-hvac", koreanName: "공조", englishName: "HVAC" },
-  Structure: { abbreviation: "Struct", color: "bg-discipline-struct", koreanName: "구조", englishName: "Structure" },
-  Cell: { abbreviation: "Cell", color: "bg-discipline-cell", koreanName: "배터리", englishName: "Cell" },
+  HVAC: {
+    abbreviation: "HVAC",
+    color: "bg-discipline-hvac",
+    koreanName: "공조",
+    englishName: "HVAC",
+  },
+  Structure: {
+    abbreviation: "Struct",
+    color: "bg-discipline-struct",
+    koreanName: "구조",
+    englishName: "Structure",
+  },
+  Cell: {
+    abbreviation: "Cell",
+    color: "bg-discipline-cell",
+    koreanName: "배터리",
+    englishName: "Cell",
+  },
 }
 
 // A fixed order used for consistent sorting throughout the app

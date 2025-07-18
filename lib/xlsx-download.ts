@@ -29,9 +29,9 @@ export function createBeautifulWorkbook(data: any[], sheetName: string, title?: 
   // Set column widths for better readability
   const colWidths = [
     { wch: 12 }, // 공종
-    { wch: 25 }, // EN
-    { wch: 25 }, // KR
-    { wch: 40 }, // 설명
+    { wch: 30 }, // EN
+    { wch: 30 }, // KR
+    { wch: 45 }, // 설명
   ]
   ws["!cols"] = colWidths
 

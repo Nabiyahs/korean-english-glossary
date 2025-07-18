@@ -7,7 +7,7 @@ import { Toggle } from "@/components/ui/toggle"
 import { Search, List, Table, BookOpen, Download, X, Plus } from "lucide-react"
 import { type GlossaryTerm, disciplineMap } from "@/lib/data"
 import { cn } from "@/lib/utils"
-import { downloadWorkbook, createBeautifulWorkbook, createTemplateWorkbook } from "@/lib/xlsx-download"
+import { downloadWorkbook, createBeautifulWorkbook } from "@/lib/xlsx-download"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import { TermInputForm } from "./term-input-form"
 
@@ -72,11 +72,6 @@ export function GlossaryHeader({
     downloadWorkbook(wb, `선택_용어집_${new Date().toISOString().split("T")[0]}.xlsx`)
   }
 
-  const handleDownloadTemplate = () => {
-    const wb = createTemplateWorkbook()
-    downloadWorkbook(wb, `용어집_템플릿_${new Date().toISOString().split("T")[0]}.xlsx`)
-  }
-
   return (
     <div className="mb-4 sm:mb-8">
       {/* Mobile-first search and add term */}
@@ -111,39 +106,27 @@ export function GlossaryHeader({
         </div>
 
         {/* Add Term Button - compact on mobile */}
-        <div className="flex gap-2">
-          <Dialog open={isAddTermModalOpen} onOpenChange={setIsAddTermModalOpen}>
-            <DialogTrigger asChild>
-              <Button className="flex-1 sm:flex-none px-3 py-2 text-sm font-medium bg-samoo-blue text-white hover:bg-samoo-blue-dark transition-colors">
-                <Plus className="w-4 h-4 mr-2" />
-                용어 추가
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] p-0 max-h-[90vh] overflow-y-auto">
-              <TermInputForm
-                onAddTerm={async (term) => {
-                  await onAddTerm(term)
-                  setIsAddTermModalOpen(false)
-                }}
-                onAddTermsFromText={async (terms) => {
-                  await onAddTermsFromText(terms)
-                  setIsAddTermModalOpen(false)
-                }}
-                existingGlossary={existingGlossary}
-              />
-            </DialogContent>
-          </Dialog>
-
-          <Button
-            onClick={handleDownloadTemplate}
-            variant="outline"
-            className="flex-shrink-0 px-3 py-2 text-sm font-medium border-samoo-blue text-samoo-blue hover:bg-samoo-blue/10 transition-colors bg-transparent"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            <span className="hidden sm:inline">템플릿</span>
-            <span className="sm:hidden">템플릿</span>
-          </Button>
-        </div>
+        <Dialog open={isAddTermModalOpen} onOpenChange={setIsAddTermModalOpen}>
+          <DialogTrigger asChild>
+            <Button className="w-full sm:w-auto px-3 py-2 text-sm font-medium bg-samoo-blue text-white hover:bg-samoo-blue-dark transition-colors">
+              <Plus className="w-4 h-4 mr-2" />
+              용어 추가
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[600px] p-0 max-h-[90vh] overflow-y-auto">
+            <TermInputForm
+              onAddTerm={async (term) => {
+                await onAddTerm(term)
+                setIsAddTermModalOpen(false)
+              }}
+              onAddTermsFromText={async (terms) => {
+                await onAddTermsFromText(terms)
+                setIsAddTermModalOpen(false)
+              }}
+              existingGlossary={existingGlossary}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Controls - Mobile optimized with compact sizing */}

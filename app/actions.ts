@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { type GlossaryTerm, disciplineMap } from "@/lib/data" // Import disciplineMap
+import { formatEnglishTerm, formatKoreanTerm, formatDescription } from "@/lib/text-formatting"
 
 export async function signIn(email: string) {
   const supabase = createClient()
@@ -106,16 +107,21 @@ export async function addGlossaryTerm(
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Removed the authentication check here.
-  // The RLS policy on the database will now handle who can insert.
+  // Format the term data
+  const formattedTerm = {
+    en: formatEnglishTerm(term.en),
+    kr: formatKoreanTerm(term.kr),
+    description: formatDescription(term.description),
+    discipline: term.discipline,
+  }
 
-  const abbreviation = disciplineMap[term.discipline].abbreviation
+  const abbreviation = disciplineMap[formattedTerm.discipline].abbreviation
 
   const { error } = await supabase.from("glossary_terms").insert({
-    en: term.en,
-    kr: term.kr,
-    description: term.description,
-    discipline: term.discipline,
+    en: formattedTerm.en,
+    kr: formattedTerm.kr,
+    description: formattedTerm.description,
+    discipline: formattedTerm.discipline,
     abbreviation: abbreviation,
     status: "pending", // New terms are always pending
     created_by: user?.id || null, // Pass user.id if available, otherwise null
@@ -136,13 +142,17 @@ export async function updateGlossaryTerm(
 ) {
   const supabase = createClient()
 
-  // If discipline is being updated, also update the abbreviation
-  const updateData: any = { ...updates }
+  // Format the updates
+  const formattedUpdates: any = {}
+  if (updates.en) formattedUpdates.en = formatEnglishTerm(updates.en)
+  if (updates.kr) formattedUpdates.kr = formatKoreanTerm(updates.kr)
+  if (updates.description !== undefined) formattedUpdates.description = formatDescription(updates.description)
   if (updates.discipline) {
-    updateData.abbreviation = disciplineMap[updates.discipline].abbreviation
+    formattedUpdates.discipline = updates.discipline
+    formattedUpdates.abbreviation = disciplineMap[updates.discipline].abbreviation
   }
 
-  const { error } = await supabase.from("glossary_terms").update(updateData).eq("id", id)
+  const { error } = await supabase.from("glossary_terms").update(formattedUpdates).eq("id", id)
 
   if (error) {
     console.error("Error updating glossary term:", error)

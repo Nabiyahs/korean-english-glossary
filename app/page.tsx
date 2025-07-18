@@ -13,6 +13,7 @@ import { UserManualContent } from "@/components/user-manual"
 import { HelpCircle } from "lucide-react"
 import { getGlossaryTerms, deleteGlossaryTerm, addGlossaryTerm } from "./actions"
 import { useToast } from "@/hooks/use-toast"
+import { formatEnglishTerm, formatKoreanTerm, formatDescription } from "@/lib/text-formatting"
 
 export default function Home() {
   const [glossary, setGlossary] = useState<GlossaryTerm[]>([])
@@ -82,7 +83,15 @@ export default function Home() {
   const handleAddTerm = async (
     newTerm: Omit<GlossaryTerm, "id" | "abbreviation" | "status" | "created_at" | "created_by">,
   ) => {
-    const result = await addGlossaryTerm(newTerm)
+    // Format the term before adding
+    const formattedTerm = {
+      ...newTerm,
+      en: formatEnglishTerm(newTerm.en),
+      kr: formatKoreanTerm(newTerm.kr),
+      description: formatDescription(newTerm.description),
+    }
+
+    const result = await addGlossaryTerm(formattedTerm)
     if (result.success) {
       toast({
         title: "성공",
@@ -121,7 +130,15 @@ export default function Home() {
         continue
       }
 
-      const result = await addGlossaryTerm(term)
+      // Format the term before adding
+      const formattedTerm = {
+        ...term,
+        en: formatEnglishTerm(term.en),
+        kr: formatKoreanTerm(term.kr),
+        description: formatDescription(term.description),
+      }
+
+      const result = await addGlossaryTerm(formattedTerm)
       if (result.success) {
         addedCount++
       } else {
@@ -214,8 +231,8 @@ export default function Home() {
 
   return (
     <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
-      {/* Mobile-optimized title section */}
-      <div className="mb-4 sm:mb-10">
+      {/* Mobile-optimized title section with relocated help button */}
+      <div className="mb-4 sm:mb-10 relative">
         <div className="text-center mb-3 sm:mb-0">
           <h1 className="text-xl sm:text-4xl font-bold sm:font-extrabold text-samoo-blue leading-tight tracking-tight">
             English-Korean Technical Glossary
@@ -225,14 +242,14 @@ export default function Home() {
             </span>
           </h1>
         </div>
-        {/* Help button - centered on mobile */}
-        <div className="flex justify-center sm:absolute sm:right-0 sm:top-1/2 sm:-translate-y-1/2">
+        {/* Help button - positioned in top right corner on desktop, centered below title on mobile */}
+        <div className="flex justify-center sm:absolute sm:top-0 sm:right-0">
           <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
             <DialogTrigger asChild>
               <Button
                 variant="outline"
                 size="sm"
-                className="px-2 py-1 text-xs sm:px-3 sm:py-2 sm:text-sm bg-samoo-gray-light text-samoo-gray hover:bg-samoo-gray-medium/20 border-samoo-gray-medium"
+                className="px-2 py-1 text-xs sm:px-3 sm:py-2 sm:text-sm bg-white/80 backdrop-blur-sm text-samoo-blue hover:bg-samoo-blue/10 border-samoo-blue/30 shadow-sm"
               >
                 <HelpCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                 사용 설명서
