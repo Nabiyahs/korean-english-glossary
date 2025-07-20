@@ -288,6 +288,17 @@ export async function approveAllTerms() {
   return { success: true, message: `${pendingTerms.length}개의 용어가 모두 승인되었습니다.` }
 }
 
+export interface DuplicateInfo {
+  pendingTerm: GlossaryTerm
+  existingTerm: GlossaryTerm
+  differences: {
+    en: boolean
+    kr: boolean
+    description: boolean
+    discipline: boolean
+  }
+}
+
 export async function detectDuplicateTerms() {
   const supabase = createClient()
 
@@ -317,19 +328,35 @@ export async function detectDuplicateTerms() {
     return { success: true, message: "용어를 찾을 수 없습니다.", duplicates: [] }
   }
 
-  // Find duplicates
-  const duplicates = pendingTerms.filter((pendingTerm) =>
-    approvedTerms.some(
+  // Find duplicates with detailed comparison
+  const duplicateInfo: DuplicateInfo[] = []
+
+  for (const pendingTerm of pendingTerms) {
+    const matchingApproved = approvedTerms.find(
       (approvedTerm) =>
-        pendingTerm.en.toLowerCase() === approvedTerm.en.toLowerCase() &&
+        pendingTerm.en.toLowerCase() === approvedTerm.en.toLowerCase() ||
         pendingTerm.kr.toLowerCase() === approvedTerm.kr.toLowerCase(),
-    ),
-  )
+    )
+
+    if (matchingApproved) {
+      duplicateInfo.push({
+        pendingTerm,
+        existingTerm: matchingApproved,
+        differences: {
+          en: pendingTerm.en.toLowerCase() !== matchingApproved.en.toLowerCase(),
+          kr: pendingTerm.kr.toLowerCase() !== matchingApproved.kr.toLowerCase(),
+          description: pendingTerm.description.toLowerCase() !== matchingApproved.description.toLowerCase(),
+          discipline: pendingTerm.discipline !== matchingApproved.discipline,
+        },
+      })
+    }
+  }
 
   return {
     success: true,
-    message: `${duplicates.length}개의 중복 용어를 발견했습니다.`,
-    duplicates: duplicates as GlossaryTerm[],
+    message: `${duplicateInfo.length}개의 중복 용어를 발견했습니다.`,
+    duplicates: duplicateInfo.map((d) => d.pendingTerm) as GlossaryTerm[],
+    duplicateInfo,
     pendingTerms: pendingTerms as GlossaryTerm[],
   }
 }
@@ -392,6 +419,42 @@ export async function approveAllTermsExcludingDuplicates() {
   return {
     success: true,
     message: `${nonDuplicateTerms.length}개의 용어가 승인되었습니다. ${duplicates.length}개의 중복 용어는 제외되었습니다.`,
+  }
+}
+
+export async function approveModifiedDuplicates(modifiedTerms: GlossaryTerm[]) {
+  const supabase = createClient()
+
+  try {
+    // Update each modified term
+    for (const term of modifiedTerms) {
+      const { error } = await supabase
+        .from("glossary_terms")
+        .update({
+          en: formatEnglishTerm(term.en),
+          kr: formatKoreanTerm(term.kr),
+          description: formatDescription(term.description),
+          discipline: term.discipline,
+          abbreviation: disciplineMap[term.discipline].abbreviation,
+          status: "approved",
+        })
+        .eq("id", term.id)
+
+      if (error) {
+        console.error("Error updating modified term:", error)
+        return { success: false, message: `용어 수정 중 오류가 발생했습니다: ${error.message}` }
+      }
+    }
+
+    revalidatePath("/")
+    revalidatePath("/admin")
+    return {
+      success: true,
+      message: `${modifiedTerms.length}개의 중복 용어가 수정되어 승인되었습니다.`,
+    }
+  } catch (error) {
+    console.error("Error in approveModifiedDuplicates:", error)
+    return { success: false, message: "용어 승인 중 예상치 못한 오류가 발생했습니다." }
   }
 }
 

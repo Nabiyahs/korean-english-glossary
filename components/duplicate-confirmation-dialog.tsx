@@ -4,24 +4,29 @@ import { useState } from "react"
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { type GlossaryTerm, disciplineMap } from "@/lib/data"
-import { AlertTriangle, CheckCheck, XCircle } from "lucide-react"
+import { AlertTriangle, CheckCheck, XCircle, Edit } from "lucide-react"
+import type { DuplicateInfo } from "@/app/actions"
 
 interface DuplicateConfirmationDialogProps {
   isOpen: boolean
   onClose: () => void
   duplicates: GlossaryTerm[]
+  duplicateInfo: DuplicateInfo[]
   totalPendingCount: number
   onApproveAll: () => Promise<void>
   onApproveExcludingDuplicates: () => Promise<void>
+  onModifyDuplicates: (duplicateInfo: DuplicateInfo[]) => void
 }
 
 export function DuplicateConfirmationDialog({
   isOpen,
   onClose,
   duplicates,
+  duplicateInfo,
   totalPendingCount,
   onApproveAll,
   onApproveExcludingDuplicates,
+  onModifyDuplicates,
 }: DuplicateConfirmationDialogProps) {
   const [isProcessing, setIsProcessing] = useState(false)
 
@@ -45,11 +50,31 @@ export function DuplicateConfirmationDialog({
     }
   }
 
+  const handleModifyDuplicates = () => {
+    onModifyDuplicates(duplicateInfo)
+    onClose()
+  }
+
   const nonDuplicateCount = totalPendingCount - duplicates.length
+
+  const renderDifference = (pendingValue: string, existingValue: string, isDifferent: boolean) => {
+    if (!isDifferent) {
+      return <span className="text-samoo-gray">{pendingValue}</span>
+    }
+
+    return (
+      <div className="space-y-1">
+        <div className="text-xs text-samoo-gray-medium">대기 중:</div>
+        <div className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">{pendingValue}</div>
+        <div className="text-xs text-samoo-gray-medium">기존:</div>
+        <div className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs">{existingValue}</div>
+      </div>
+    )
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-y-auto">
         <div className="p-6">
           <DialogTitle className="text-xl font-bold text-amber-600 mb-2 flex items-center">
             <AlertTriangle className="w-5 h-5 mr-2" />
@@ -76,28 +101,51 @@ export function DuplicateConfirmationDialog({
             </div>
           </div>
 
-          {duplicates.length > 0 && (
+          {duplicateInfo.length > 0 && (
             <div className="mb-6">
-              <h4 className="text-lg font-semibold text-samoo-gray mb-3">중복 용어 목록</h4>
-              <div className="max-h-60 overflow-y-auto border border-samoo-gray-light rounded-lg">
+              <h4 className="text-lg font-semibold text-samoo-gray mb-3">중복 용어 상세 비교</h4>
+              <div className="max-h-80 overflow-y-auto border border-samoo-gray-light rounded-lg">
                 <table className="w-full text-left border-collapse">
                   <thead className="sticky top-0 bg-samoo-gray-light/50">
                     <tr>
                       <th className="p-3 text-xs font-medium text-samoo-gray">공종</th>
                       <th className="p-3 text-xs font-medium text-samoo-gray">English</th>
                       <th className="p-3 text-xs font-medium text-samoo-gray">한국어</th>
+                      <th className="p-3 text-xs font-medium text-samoo-gray">설명</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {duplicates.map((term) => (
-                      <tr key={term.id} className="border-b border-samoo-gray-light/50 hover:bg-amber-50/50">
+                    {duplicateInfo.map((info, index) => (
+                      <tr
+                        key={info.pendingTerm.id}
+                        className="border-b border-samoo-gray-light/50 hover:bg-amber-50/50"
+                      >
                         <td className="p-3 text-xs">
-                          <span className="px-2 py-1 bg-amber-100 text-amber-800 rounded text-xs font-medium">
-                            {disciplineMap[term.discipline].abbreviation}
-                          </span>
+                          {info.differences.discipline ? (
+                            renderDifference(
+                              disciplineMap[info.pendingTerm.discipline].abbreviation,
+                              disciplineMap[info.existingTerm.discipline].abbreviation,
+                              true,
+                            )
+                          ) : (
+                            <span className="px-2 py-1 bg-amber-100 text-amber-800 rounded text-xs font-medium">
+                              {disciplineMap[info.pendingTerm.discipline].abbreviation}
+                            </span>
+                          )}
                         </td>
-                        <td className="p-3 text-xs font-medium text-samoo-gray">{term.en}</td>
-                        <td className="p-3 text-xs font-medium text-samoo-gray">{term.kr}</td>
+                        <td className="p-3 text-xs">
+                          {renderDifference(info.pendingTerm.en, info.existingTerm.en, info.differences.en)}
+                        </td>
+                        <td className="p-3 text-xs">
+                          {renderDifference(info.pendingTerm.kr, info.existingTerm.kr, info.differences.kr)}
+                        </td>
+                        <td className="p-3 text-xs">
+                          {renderDifference(
+                            info.pendingTerm.description || "설명 없음",
+                            info.existingTerm.description || "설명 없음",
+                            info.differences.description,
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -116,12 +164,12 @@ export function DuplicateConfirmationDialog({
               취소
             </Button>
             <Button
-              onClick={handleApproveAll}
+              onClick={handleModifyDuplicates}
               disabled={isProcessing}
-              className="px-4 py-2 text-sm font-medium bg-amber-600 text-white hover:bg-amber-700 transition-colors flex items-center gap-2"
+              className="px-4 py-2 text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center gap-2"
             >
-              <CheckCheck className="w-4 h-4" />
-              모두 승인 ({totalPendingCount}개)
+              <Edit className="w-4 h-4" />
+              중복 용어 수정
             </Button>
             <Button
               onClick={handleApproveExcludingDuplicates}
@@ -130,6 +178,14 @@ export function DuplicateConfirmationDialog({
             >
               <XCircle className="w-4 h-4" />
               중복 제외 ({nonDuplicateCount}개)
+            </Button>
+            <Button
+              onClick={handleApproveAll}
+              disabled={isProcessing}
+              className="px-4 py-2 text-sm font-medium bg-amber-600 text-white hover:bg-amber-700 transition-colors flex items-center gap-2"
+            >
+              <CheckCheck className="w-4 h-4" />
+              모두 승인 ({totalPendingCount}개)
             </Button>
           </div>
 

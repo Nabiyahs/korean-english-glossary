@@ -6,7 +6,9 @@ import { CheckCheck, XCircle, Search } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import type { GlossaryTerm } from "@/lib/data"
 import { DuplicateConfirmationDialog } from "./duplicate-confirmation-dialog"
-import { detectDuplicateTerms, approveAllTermsExcludingDuplicates } from "@/app/actions"
+import { DuplicateEditDialog } from "./duplicate-edit-dialog"
+import { detectDuplicateTerms, approveAllTermsExcludingDuplicates, approveModifiedDuplicates } from "@/app/actions"
+import type { DuplicateInfo } from "@/app/actions"
 
 interface AdminBulkActionsProps {
   pendingCount: number
@@ -17,7 +19,9 @@ interface AdminBulkActionsProps {
 export function AdminBulkActions({ pendingCount, onApproveAll, onRejectAll }: AdminBulkActionsProps) {
   const { toast } = useToast()
   const [duplicates, setDuplicates] = useState<GlossaryTerm[]>([])
+  const [duplicateInfo, setDuplicateInfo] = useState<DuplicateInfo[]>([])
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
   const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false)
 
   // useActionState for reject all
@@ -45,6 +49,7 @@ export function AdminBulkActions({ pendingCount, onApproveAll, onRejectAll }: Ad
       const result = await detectDuplicateTerms()
       if (result.success && result.duplicates.length > 0) {
         setDuplicates(result.duplicates)
+        setDuplicateInfo(result.duplicateInfo || [])
         setShowDuplicateDialog(true)
       } else {
         // No duplicates, proceed with normal approval
@@ -76,6 +81,21 @@ export function AdminBulkActions({ pendingCount, onApproveAll, onRejectAll }: Ad
     const result = await approveAllTermsExcludingDuplicates()
     if (result.success) {
       toast({ title: "성공", description: result.message })
+    } else {
+      toast({ title: "오류", description: result.message, variant: "destructive" })
+    }
+  }
+
+  const handleModifyDuplicates = (duplicateInfoToEdit: DuplicateInfo[]) => {
+    setDuplicateInfo(duplicateInfoToEdit)
+    setShowEditDialog(true)
+  }
+
+  const handleSaveModifiedDuplicates = async (modifiedTerms: GlossaryTerm[]) => {
+    const result = await approveModifiedDuplicates(modifiedTerms)
+    if (result.success) {
+      toast({ title: "성공", description: result.message })
+      setShowEditDialog(false)
     } else {
       toast({ title: "오류", description: result.message, variant: "destructive" })
     }
@@ -118,9 +138,18 @@ export function AdminBulkActions({ pendingCount, onApproveAll, onRejectAll }: Ad
         isOpen={showDuplicateDialog}
         onClose={() => setShowDuplicateDialog(false)}
         duplicates={duplicates}
+        duplicateInfo={duplicateInfo}
         totalPendingCount={pendingCount}
         onApproveAll={handleApproveAllWithDuplicates}
         onApproveExcludingDuplicates={handleApproveExcludingDuplicates}
+        onModifyDuplicates={handleModifyDuplicates}
+      />
+
+      <DuplicateEditDialog
+        isOpen={showEditDialog}
+        onClose={() => setShowEditDialog(false)}
+        duplicateInfo={duplicateInfo}
+        onSave={handleSaveModifiedDuplicates}
       />
     </>
   )
