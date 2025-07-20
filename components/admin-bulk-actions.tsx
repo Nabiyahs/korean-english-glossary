@@ -53,7 +53,8 @@ export function AdminBulkActions({ pendingCount, hasDuplicates, onApproveAll, on
     }
   }, [rejectAllState, toast])
 
-  const isDisabled = hasDuplicates || isApprovingAll || isRejectingAll
+  // Remove duplicate restriction - always allow bulk actions
+  const isDisabled = isApprovingAll || isRejectingAll
 
   return (
     <div className="flex gap-3">
@@ -62,10 +63,10 @@ export function AdminBulkActions({ pendingCount, hasDuplicates, onApproveAll, on
           type="submit"
           className="px-4 py-2 text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors flex items-center gap-2"
           disabled={isDisabled}
-          title={hasDuplicates ? "중복 용어가 있어 비활성화됨" : ""}
         >
           <CheckCheck className="w-4 h-4" />
           모두 승인 ({pendingCount}개)
+          {hasDuplicates && <span className="text-xs opacity-75">*중복포함</span>}
         </Button>
       </form>
       <form action={rejectAllAction}>
@@ -74,10 +75,10 @@ export function AdminBulkActions({ pendingCount, hasDuplicates, onApproveAll, on
           variant="destructive"
           className="px-4 py-2 text-sm font-medium flex items-center gap-2"
           disabled={isDisabled}
-          title={hasDuplicates ? "중복 용어가 있어 비활성화됨" : ""}
         >
           <XCircle className="w-4 h-4" />
           모두 거부 ({pendingCount}개)
+          {hasDuplicates && <span className="text-xs opacity-75">*중복포함</span>}
         </Button>
       </form>
     </div>

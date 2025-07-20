@@ -46,6 +46,23 @@ export default function AdminPage() {
     setHasDuplicates(duplicatesExist)
   }
 
+  // Refresh data after bulk actions
+  const handleApproveAll = async () => {
+    const result = await approveAllTerms()
+    if (result.success) {
+      await fetchData() // Refresh all data
+    }
+    return result
+  }
+
+  const handleRejectAll = async () => {
+    const result = await rejectAllTerms()
+    if (result.success) {
+      await fetchData() // Refresh all data
+    }
+    return result
+  }
+
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -63,7 +80,7 @@ export default function AdminPage() {
         <p className="text-samoo-gray-medium">이 페이지에서 용어를 승인하거나 삭제할 수 있습니다.</p>
       </div>
 
-      {/* Duplicate Comparison Section */}
+      {/* Duplicate Comparison Section - Now ultra compact */}
       <DuplicateComparisonSection onDuplicatesChange={handleDuplicatesChange} />
 
       {/* Pending Terms Section */}
@@ -74,8 +91,8 @@ export default function AdminPage() {
             <AdminBulkActions
               pendingCount={pendingTerms.length}
               hasDuplicates={hasDuplicates}
-              onApproveAll={approveAllTerms}
-              onRejectAll={rejectAllTerms}
+              onApproveAll={handleApproveAll}
+              onRejectAll={handleRejectAll}
             />
           )}
         </div>

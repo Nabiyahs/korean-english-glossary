@@ -127,7 +127,7 @@ export function GlossaryTable({
               return (
                 <tr
                   key={term.id}
-                  id={termIdForScroll}
+                  id={termIdForScroll || `term-${term.id}`}
                   className={cn(
                     "border-b border-samoo-gray-light last:border-b-0",
                     highlightedTermId === term.id ? "bg-yellow-100" : "hover:bg-samoo-gray-light/30",

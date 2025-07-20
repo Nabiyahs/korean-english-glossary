@@ -23,16 +23,14 @@ export default function Home() {
   const [highlightedTermId, setHighlightedTermId] = useState<string | null>(null)
   const [isManualOpen, setIsManualOpen] = useState(false)
   const [activeDisciplineForScroll, setActiveDisciplineForScroll] = useState<Discipline | null>(null)
-  const [isAdmin, setIsAdmin] = useState(true) // Always true since anyone can be admin now
-  const [isAuthenticated, setIsAuthenticated] = useState(true) // Always true
   const { toast } = useToast()
 
   useEffect(() => {
     async function fetchInitialData() {
       try {
-        // Remove session checks - just fetch all terms for admin view
-        const fetchedTerms = await getGlossaryTerms(undefined, true) // Get all terms
-        setGlossary(sortGlossaryTerms(fetchedTerms, true)) // Always use admin view
+        // Only fetch approved terms for regular users
+        const fetchedTerms = await getGlossaryTerms("approved", false)
+        setGlossary(sortGlossaryTermsForUsers(fetchedTerms))
       } catch (error) {
         console.error("Error fetching initial data:", error)
         setGlossary([])
@@ -46,38 +44,17 @@ export default function Home() {
     fetchInitialData()
   }, [toast]) // Add toast to dependencies
 
-  const sortGlossaryTerms = (terms: GlossaryTerm[], isAdminView: boolean) => {
-    if (isAdminView) {
-      const pendingTerms = terms.filter((term) => term.status === "pending")
-      const approvedTerms = terms.filter((term) => term.status === "approved")
+  const sortGlossaryTermsForUsers = (terms: GlossaryTerm[]) => {
+    // For regular users, just sort by discipline then English term
+    return terms.sort((a, b) => {
+      const disciplineAIndex = disciplineOrder.indexOf(a.discipline)
+      const disciplineBIndex = disciplineOrder.indexOf(b.discipline)
 
-      // Sort pending terms alphabetically by English term
-      pendingTerms.sort((a, b) => a.en.localeCompare(b.en))
-
-      // Sort approved terms by discipline then alphabetically by English term
-      approvedTerms.sort((a, b) => {
-        const disciplineAIndex = disciplineOrder.indexOf(a.discipline)
-        const disciplineBIndex = disciplineOrder.indexOf(b.discipline)
-
-        if (disciplineAIndex !== disciplineBIndex) {
-          return disciplineAIndex - disciplineBIndex
-        }
-        return a.en.localeCompare(b.en)
-      })
-
-      return [...pendingTerms, ...approvedTerms]
-    } else {
-      // For non-admin view, just sort approved terms by discipline then English term
-      return terms.sort((a, b) => {
-        const disciplineAIndex = disciplineOrder.indexOf(a.discipline)
-        const disciplineBIndex = disciplineOrder.indexOf(b.discipline)
-
-        if (disciplineAIndex !== disciplineBIndex) {
-          return disciplineAIndex - disciplineBIndex
-        }
-        return a.en.localeCompare(b.en)
-      })
-    }
+      if (disciplineAIndex !== disciplineBIndex) {
+        return disciplineAIndex - disciplineBIndex
+      }
+      return a.en.localeCompare(b.en)
+    })
   }
 
   const handleAddTerm = async (
@@ -97,13 +74,7 @@ export default function Home() {
         title: "성공",
         description: result.message,
       })
-      // Refresh the data after adding
-      try {
-        const fetchedTerms = await getGlossaryTerms(undefined, true)
-        setGlossary(sortGlossaryTerms(fetchedTerms, true))
-      } catch (error) {
-        console.error("Error refreshing data:", error)
-      }
+      // Don't refresh the data since the term is pending and won't show up for regular users
     } else {
       toast({
         title: "오류",
@@ -149,15 +120,9 @@ export default function Home() {
     if (addedCount > 0) {
       toast({
         title: "업로드 완료",
-        description: `${addedCount}개의 용어가 추가되었습니다.`,
+        description: `${addedCount}개의 용어가 추가되었습니다. 관리자 승인 후 표시됩니다.`,
       })
-      // Refresh the data after adding multiple terms
-      try {
-        const fetchedTerms = await getGlossaryTerms(undefined, true)
-        setGlossary(sortGlossaryTerms(fetchedTerms, true))
-      } catch (error) {
-        console.error("Error refreshing data:", error)
-      }
+      // Don't refresh the data since the terms are pending and won't show up for regular users
     }
     if (duplicateCount > 0) {
       toast({
@@ -292,7 +257,7 @@ export default function Home() {
         onToggleTermSelection={handleToggleTermSelection}
         highlightedTermId={highlightedTermId}
         onDeleteTerm={handleDeleteTerm}
-        isAdmin={isAdmin}
+        isAdmin={false} // Regular users are not admin
       />
 
       <ScrollToTopButton />
