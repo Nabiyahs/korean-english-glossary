@@ -13,6 +13,7 @@ import { disciplineMap } from "@/lib/data"
 import { AdminActionButtons } from "@/components/admin-action-buttons"
 import { AdminBulkActions } from "@/components/admin-bulk-actions"
 import { AdminTermsTable } from "@/components/admin-terms-table"
+import { DuplicateTermsSection } from "@/components/duplicate-terms-section"
 
 export default async function AdminPage() {
   const pendingTerms = await getGlossaryTerms("pending")
@@ -24,6 +25,9 @@ export default async function AdminPage() {
         <h1 className="text-3xl font-bold text-samoo-blue mb-2">관리자 페이지</h1>
         <p className="text-samoo-gray-medium">이 페이지에서 용어를 승인하거나 삭제할 수 있습니다.</p>
       </div>
+
+      {/* Add the duplicate terms section here */}
+      <DuplicateTermsSection />
 
       {/* Pending Terms Section */}
       <section className="mb-12">

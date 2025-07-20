@@ -288,6 +288,113 @@ export async function approveAllTerms() {
   return { success: true, message: `${pendingTerms.length}개의 용어가 모두 승인되었습니다.` }
 }
 
+export async function detectDuplicateTerms() {
+  const supabase = createClient()
+
+  // Get all pending terms
+  const { data: pendingTerms, error: pendingError } = await supabase
+    .from("glossary_terms")
+    .select("*")
+    .eq("status", "pending")
+
+  if (pendingError) {
+    console.error("Error fetching pending terms:", pendingError)
+    return { success: false, message: "대기 중인 용어를 가져오는 중 오류가 발생했습니다.", duplicates: [] }
+  }
+
+  // Get all approved terms
+  const { data: approvedTerms, error: approvedError } = await supabase
+    .from("glossary_terms")
+    .select("*")
+    .eq("status", "approved")
+
+  if (approvedError) {
+    console.error("Error fetching approved terms:", approvedError)
+    return { success: false, message: "승인된 용어를 가져오는 중 오류가 발생했습니다.", duplicates: [] }
+  }
+
+  if (!pendingTerms || !approvedTerms) {
+    return { success: true, message: "용어를 찾을 수 없습니다.", duplicates: [] }
+  }
+
+  // Find duplicates
+  const duplicates = pendingTerms.filter((pendingTerm) =>
+    approvedTerms.some(
+      (approvedTerm) =>
+        pendingTerm.en.toLowerCase() === approvedTerm.en.toLowerCase() &&
+        pendingTerm.kr.toLowerCase() === approvedTerm.kr.toLowerCase(),
+    ),
+  )
+
+  return {
+    success: true,
+    message: `${duplicates.length}개의 중복 용어를 발견했습니다.`,
+    duplicates: duplicates as GlossaryTerm[],
+    pendingTerms: pendingTerms as GlossaryTerm[],
+  }
+}
+
+export async function approveAllTermsExcludingDuplicates() {
+  const supabase = createClient()
+
+  // First detect duplicates
+  const duplicateResult = await detectDuplicateTerms()
+  if (!duplicateResult.success) {
+    return duplicateResult
+  }
+
+  const { duplicates, pendingTerms } = duplicateResult
+
+  if (!pendingTerms || pendingTerms.length === 0) {
+    return { success: false, message: "승인할 대기 중인 용어가 없습니다." }
+  }
+
+  // Get IDs of non-duplicate terms
+  const duplicateIds = new Set(duplicates.map((d) => d.id))
+  const nonDuplicateTerms = pendingTerms.filter((term) => !duplicateIds.has(term.id))
+
+  if (nonDuplicateTerms.length === 0) {
+    return { success: false, message: "중복을 제외하면 승인할 용어가 없습니다." }
+  }
+
+  // Approve only non-duplicate terms
+  const { error } = await supabase
+    .from("glossary_terms")
+    .update({ status: "approved" })
+    .in(
+      "id",
+      nonDuplicateTerms.map((term) => term.id),
+    )
+
+  if (error) {
+    console.error("Error approving non-duplicate terms:", error)
+    return { success: false, message: error.message }
+  }
+
+  // Delete duplicate terms
+  if (duplicates.length > 0) {
+    const { error: deleteError } = await supabase
+      .from("glossary_terms")
+      .delete()
+      .in(
+        "id",
+        duplicates.map((d) => d.id),
+      )
+
+    if (deleteError) {
+      console.error("Error deleting duplicate terms:", deleteError)
+      // Don't fail the whole operation if deletion fails
+    }
+  }
+
+  revalidatePath("/")
+  revalidatePath("/admin")
+  return {
+    success: true,
+    message: `${nonDuplicateTerms.length}개의 용어가 승인되었습니다. ${duplicates.length}개의 중복 용어는 제외되었습니다.`,
+  }
+}
+
 export async function rejectAllTerms() {
   const supabase = createClient()
 
