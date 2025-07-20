@@ -1,3 +1,6 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import {
   getGlossaryTerms,
   approveGlossaryTerm,
@@ -13,11 +16,45 @@ import { disciplineMap } from "@/lib/data"
 import { AdminActionButtons } from "@/components/admin-action-buttons"
 import { AdminBulkActions } from "@/components/admin-bulk-actions"
 import { AdminTermsTable } from "@/components/admin-terms-table"
-import { DuplicateTermsSection } from "@/components/duplicate-terms-section"
+import { DuplicateComparisonSection } from "@/components/duplicate-comparison-section"
+import type { GlossaryTerm } from "@/lib/data"
 
-export default async function AdminPage() {
-  const pendingTerms = await getGlossaryTerms("pending")
-  const allTerms = await getGlossaryTerms(undefined, true) // Get all terms for admin view
+export default function AdminPage() {
+  const [pendingTerms, setPendingTerms] = useState<GlossaryTerm[]>([])
+  const [allTerms, setAllTerms] = useState<GlossaryTerm[]>([])
+  const [hasDuplicates, setHasDuplicates] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  const fetchData = async () => {
+    setIsLoading(true)
+    try {
+      const [pending, all] = await Promise.all([getGlossaryTerms("pending"), getGlossaryTerms(undefined, true)])
+      setPendingTerms(pending)
+      setAllTerms(all)
+    } catch (error) {
+      console.error("Error fetching data:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  const handleDuplicatesChange = (duplicatesExist: boolean) => {
+    setHasDuplicates(duplicatesExist)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center">
+          <div className="text-lg">로딩 중...</div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -26,8 +63,8 @@ export default async function AdminPage() {
         <p className="text-samoo-gray-medium">이 페이지에서 용어를 승인하거나 삭제할 수 있습니다.</p>
       </div>
 
-      {/* Add the duplicate terms section here */}
-      <DuplicateTermsSection />
+      {/* Duplicate Comparison Section */}
+      <DuplicateComparisonSection onDuplicatesChange={handleDuplicatesChange} />
 
       {/* Pending Terms Section */}
       <section className="mb-12">
@@ -36,6 +73,7 @@ export default async function AdminPage() {
           {pendingTerms.length > 0 && (
             <AdminBulkActions
               pendingCount={pendingTerms.length}
+              hasDuplicates={hasDuplicates}
               onApproveAll={approveAllTerms}
               onRejectAll={rejectAllTerms}
             />
