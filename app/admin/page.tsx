@@ -20,8 +20,11 @@ import { DuplicateComparisonSection } from "@/components/duplicate-comparison-se
 import { DebugInfo } from "@/components/debug-info"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { List, Table } from "lucide-react"
+import { List, Table, Edit } from "lucide-react"
 import type { GlossaryTerm } from "@/lib/data"
+import { useToast } from "@/hooks/use-toast"
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
+import { EditTermForm } from "@/components/edit-term-form"
 
 export default function AdminPage() {
   const [pendingTerms, setPendingTerms] = useState<GlossaryTerm[]>([])
@@ -29,6 +32,8 @@ export default function AdminPage() {
   const [hasDuplicates, setHasDuplicates] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [currentView, setCurrentView] = useState<"discipline" | "all">("all")
+  const [editingPendingTerm, setEditingPendingTerm] = useState<GlossaryTerm | null>(null)
+  const { toast } = useToast()
 
   const fetchData = async () => {
     setIsLoading(true)
@@ -68,6 +73,32 @@ export default function AdminPage() {
     return result
   }
 
+  const handleEditPending = async (
+    updates: Partial<Pick<GlossaryTerm, "en" | "kr" | "description" | "discipline">>,
+  ) => {
+    if (!editingPendingTerm) return
+
+    const result = await updateGlossaryTerm(editingPendingTerm.id, updates)
+    if (result.success) {
+      toast({ title: "성공", description: result.message })
+      // Update local state
+      setPendingTerms((prev) =>
+        prev.map((term) =>
+          term.id === editingPendingTerm.id
+            ? {
+                ...term,
+                ...updates,
+                abbreviation: updates.discipline ? disciplineMap[updates.discipline].abbreviation : term.abbreviation,
+              }
+            : term,
+        ),
+      )
+      setEditingPendingTerm(null)
+    } else {
+      toast({ title: "오류", description: result.message, variant: "destructive" })
+    }
+  }
+
   const disciplines = Object.keys(disciplineMap) as Discipline[]
 
   const renderPendingTermsTable = (terms: GlossaryTerm[], discipline?: Discipline) => (
@@ -83,7 +114,7 @@ export default function AdminPage() {
               <th className="p-4 text-sm font-semibold text-samoo-gray">English</th>
               <th className="p-4 text-sm font-semibold text-samoo-gray">한국어</th>
               <th className="p-4 text-sm font-semibold text-samoo-gray">설명</th>
-              <th className="p-4 text-sm font-semibold text-samoo-gray text-center">작업</th>
+              <th className="p-4 text-sm font-semibold text-samoo-gray text-center w-24">작업</th>
             </tr>
           </thead>
           <tbody>
@@ -107,7 +138,29 @@ export default function AdminPage() {
                   {term.description || "설명 없음"}
                 </td>
                 <td className="p-4 text-center">
-                  <div className="flex gap-2 justify-center">
+                  <div className="flex gap-1 justify-center">
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-blue-500 hover:bg-blue-100"
+                          onClick={() => setEditingPendingTerm(term)}
+                        >
+                          <Edit className="h-4 w-4" />
+                          <span className="sr-only">용어 수정</span>
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[600px]">
+                        {editingPendingTerm && (
+                          <EditTermForm
+                            term={editingPendingTerm}
+                            onSave={handleEditPending}
+                            onCancel={() => setEditingPendingTerm(null)}
+                          />
+                        )}
+                      </DialogContent>
+                    </Dialog>
                     <AdminActionButtons
                       termId={term.id}
                       onApprove={approveGlossaryTerm}
