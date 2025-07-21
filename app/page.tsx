@@ -175,6 +175,13 @@ export default function Home() {
   }
 
   const handleScrollToDiscipline = (discipline: Discipline) => {
+    // Toggle functionality: if clicking the same discipline, unselect it
+    if (activeDisciplineForScroll === discipline) {
+      setActiveDisciplineForScroll(null)
+      window.scrollTo({ top: 0, behavior: "smooth" })
+      return
+    }
+
     setActiveDisciplineForScroll(discipline)
     let element: HTMLElement | null = null
     if (currentView === "discipline") {
@@ -197,7 +204,7 @@ export default function Home() {
   return (
     <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
       {/* Mobile-optimized title section with relocated help button */}
-      <div className="mb-4 sm:mb-10 relative">
+      <div className="mb-4 sm:mb-8 relative">
         <div className="text-center mb-3 sm:mb-0">
           <h1 className="text-xl sm:text-4xl font-bold sm:font-extrabold text-samoo-blue leading-tight tracking-tight">
             English-Korean Technical Glossary
