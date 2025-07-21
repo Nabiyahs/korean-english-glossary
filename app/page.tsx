@@ -7,7 +7,6 @@ import { GlossaryHeader } from "@/components/glossary-header"
 import { DisciplineShortcuts } from "@/components/discipline-shortcuts"
 import { GlossaryTable } from "@/components/glossary-table"
 import { ScrollToTopButton } from "@/components/scroll-to-top-button"
-import { DebugInfo } from "@/components/debug-info"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { UserManualContent } from "@/components/user-manual"
@@ -229,9 +228,6 @@ export default function Home() {
       </div>
 
       <DisclaimerContact />
-
-      {/* Debug Info Component - Shows database status */}
-      <DebugInfo />
 
       <GlossaryHeader
         glossary={glossary}

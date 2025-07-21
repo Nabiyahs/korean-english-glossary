@@ -17,6 +17,7 @@ import { AdminActionButtons } from "@/components/admin-action-buttons"
 import { AdminBulkActions } from "@/components/admin-bulk-actions"
 import { AdminTermsTable } from "@/components/admin-terms-table"
 import { DuplicateComparisonSection } from "@/components/duplicate-comparison-section"
+import { DebugInfo } from "@/components/debug-info"
 import type { GlossaryTerm } from "@/lib/data"
 
 export default function AdminPage() {
@@ -79,6 +80,9 @@ export default function AdminPage() {
         <h1 className="text-3xl font-bold text-samoo-blue mb-2">관리자 페이지</h1>
         <p className="text-samoo-gray-medium">이 페이지에서 용어를 승인하거나 삭제할 수 있습니다.</p>
       </div>
+
+      {/* Debug Info - Admin Only */}
+      <DebugInfo />
 
       {/* Duplicate Comparison Section - Now ultra compact */}
       <DuplicateComparisonSection onDuplicatesChange={handleDuplicatesChange} />
