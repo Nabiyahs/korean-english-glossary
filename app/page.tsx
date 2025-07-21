@@ -69,7 +69,7 @@ export default function Home() {
     }
 
     const result = await addGlossaryTerm(formattedTerm)
-    // Remove toast notification - let the form handle the success message
+    // Don't close the modal automatically - let user close it manually
     return result
   }
 

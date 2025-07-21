@@ -87,12 +87,6 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
           addedCount: 1,
           duplicateCount: 0,
         })
-
-        // Show success toast as well
-        toast({
-          title: "성공",
-          description: "용어가 성공적으로 추가되었습니다. 관리자 승인 후 표시됩니다.",
-        })
       } catch (error) {
         console.error("Error adding term:", error)
         setUploadSuccess({
@@ -119,12 +113,10 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
     if (file) {
       setUploadedFile(file)
       setUploadedFileName(file.name)
-      setUploadSuccess(null) // Reset previous upload status
-    }
-
-    // Reset file input
-    if (event.target) {
-      event.target.value = ""
+      // Reset file input
+      if (event.target) {
+        event.target.value = ""
+      }
     }
   }
 
@@ -132,7 +124,9 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
     if (!uploadedFile) return
 
     setIsProcessingFile(true)
-    setUploadSuccess(null)
+    if (uploadSuccess && !uploadSuccess.success) {
+      setUploadSuccess(null)
+    }
 
     try {
       const text = await uploadedFile.text()
@@ -244,7 +238,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
     if (isSubmitting || isProcessingFile) {
       return {
         text: uploadedFile ? "처리 중..." : "추가 중...",
-        className: "bg-samoo-blue text-white",
+        className: "bg-samoo-blue text-white animate-pulse",
         disabled: true,
       }
     }
@@ -252,7 +246,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
     if (uploadedFile) {
       return {
         text: "추가",
-        className: "bg-green-600 text-white hover:bg-green-700 animate-pulse",
+        className: "bg-orange-600 text-white hover:bg-orange-700 animate-pulse",
         disabled: false,
       }
     }
@@ -374,6 +368,21 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
           disabled={buttonState.disabled}
           className={cn("w-full h-9 text-sm font-medium transition-colors rounded-lg", buttonState.className)}
         >
+          {(isSubmitting || isProcessingFile) && (
+            <svg
+              className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
+          )}
           {buttonState.text}
         </Button>
       </form>
@@ -381,6 +390,31 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
       {/* File Upload Section */}
       <div className="border-t border-samoo-gray-light pt-3 mt-3">
         <Label className="text-xs font-medium text-samoo-gray mb-2 block">파일 업로드</Label>
+
+        {/* Processing indicator */}
+        {isProcessingFile && (
+          <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <svg
+                className="animate-spin h-4 w-4 text-blue-600"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              <span className="text-sm text-blue-800 font-medium">파일을 처리하고 있습니다...</span>
+            </div>
+            <div className="mt-2 w-full bg-blue-200 rounded-full h-2">
+              <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: "70%" }}></div>
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-1">
           <div className="flex-1 relative">
@@ -410,7 +444,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
             onClick={downloadTemplate}
             disabled={isProcessingFile || isSubmitting}
             variant="outline"
-            className="h-8 px-2 text-xs border-samoo-gray-medium text-samoo-gray hover:bg-samoo-gray-light/20 bg-white"
+            className="h-8 px-2 text-xs bg-samoo-blue text-white hover:bg-samoo-blue-dark border-samoo-blue font-medium"
           >
             <Download className="w-3 h-3 mr-1" />
             템플릿
