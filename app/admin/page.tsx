@@ -90,7 +90,14 @@ export default function AdminPage() {
       {/* Pending Terms Section */}
       <section className="mb-12">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-semibold text-samoo-gray">승인 대기 용어 ({pendingTerms.length}개)</h2>
+          <h2 className="text-2xl font-semibold text-samoo-gray">
+            승인 대기 용어 ({pendingTerms.length}개)
+            {pendingTerms.length > 10 && (
+              <span className="text-sm font-normal text-amber-600 ml-2">
+                ⚠️ 많은 용어가 대기 중입니다. 아래로 스크롤하여 모든 용어를 확인하세요.
+              </span>
+            )}
+          </h2>
           {pendingTerms.length > 0 && (
             <AdminBulkActions
               pendingCount={pendingTerms.length}
@@ -106,42 +113,88 @@ export default function AdminPage() {
             <p className="text-samoo-gray-medium italic">승인 대기 중인 용어가 없습니다.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-samoo-gray-light shadow-sm bg-white">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-yellow-50 border-b-2 border-yellow-200">
-                  <th className="p-4 text-sm font-semibold text-samoo-gray">공종</th>
-                  <th className="p-4 text-sm font-semibold text-samoo-gray">English</th>
-                  <th className="p-4 text-sm font-semibold text-samoo-gray">한국어</th>
-                  <th className="p-4 text-sm font-semibold text-samoo-gray">설명</th>
-                  <th className="p-4 text-sm font-semibold text-samoo-gray text-center">작업</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendingTerms.map((term) => (
-                  <tr key={term.id} className="border-b border-samoo-gray-light hover:bg-yellow-50/50">
-                    <td className="p-4 text-sm">
-                      <span className="px-2 py-1 bg-samoo-blue/10 text-samoo-blue rounded text-xs font-medium">
-                        {disciplineMap[term.discipline].abbreviation}
-                      </span>
-                    </td>
-                    <td className="p-4 text-sm font-medium text-samoo-gray">{term.en}</td>
-                    <td className="p-4 text-sm font-medium text-samoo-gray">{term.kr}</td>
-                    <td className="p-4 text-sm text-samoo-gray-medium">{term.description || "설명 없음"}</td>
-                    <td className="p-4 text-center">
-                      <div className="flex gap-2 justify-center">
-                        <AdminActionButtons
-                          termId={term.id}
-                          onApprove={approveGlossaryTerm}
-                          onReject={rejectGlossaryTerm}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <>
+            {/* Summary card for many terms */}
+            {pendingTerms.length > 20 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-amber-800 font-medium">📊 대기 용어 요약</p>
+                    <p className="text-amber-700 text-sm">
+                      총 {pendingTerms.length}개의 용어가 승인을 기다리고 있습니다. "모두 승인" 또는 "모두 거부"
+                      버튼으로 일괄 처리할 수 있습니다.
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-amber-600">{pendingTerms.length}</div>
+                    <div className="text-xs text-amber-600">대기 중</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Full height table with scroll */}
+            <div className="rounded-lg border border-samoo-gray-light shadow-sm bg-white">
+              <div className="max-h-[70vh] overflow-y-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead className="sticky top-0 bg-yellow-50 z-10">
+                    <tr className="border-b-2 border-yellow-200">
+                      <th className="p-4 text-sm font-semibold text-samoo-gray">
+                        #
+                        <span className="text-xs font-normal text-samoo-gray-medium ml-1">
+                          (총 {pendingTerms.length}개)
+                        </span>
+                      </th>
+                      <th className="p-4 text-sm font-semibold text-samoo-gray">공종</th>
+                      <th className="p-4 text-sm font-semibold text-samoo-gray">English</th>
+                      <th className="p-4 text-sm font-semibold text-samoo-gray">한국어</th>
+                      <th className="p-4 text-sm font-semibold text-samoo-gray">설명</th>
+                      <th className="p-4 text-sm font-semibold text-samoo-gray text-center">작업</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingTerms.map((term, index) => (
+                      <tr
+                        key={term.id}
+                        className={`border-b border-samoo-gray-light hover:bg-yellow-50/50 ${
+                          index % 2 === 0 ? "bg-white" : "bg-gray-50/30"
+                        }`}
+                      >
+                        <td className="p-4 text-sm text-samoo-gray-medium font-mono">{index + 1}</td>
+                        <td className="p-4 text-sm">
+                          <span className="px-2 py-1 bg-samoo-blue/10 text-samoo-blue rounded text-xs font-medium">
+                            {disciplineMap[term.discipline].abbreviation}
+                          </span>
+                        </td>
+                        <td className="p-4 text-sm font-medium text-samoo-gray">{term.en}</td>
+                        <td className="p-4 text-sm font-medium text-samoo-gray">{term.kr}</td>
+                        <td className="p-4 text-sm text-samoo-gray-medium max-w-xs truncate" title={term.description}>
+                          {term.description || "설명 없음"}
+                        </td>
+                        <td className="p-4 text-center">
+                          <div className="flex gap-2 justify-center">
+                            <AdminActionButtons
+                              termId={term.id}
+                              onApprove={approveGlossaryTerm}
+                              onReject={rejectGlossaryTerm}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Footer with total count */}
+              <div className="bg-gray-50 border-t border-samoo-gray-light px-4 py-3">
+                <div className="flex justify-between items-center text-sm text-samoo-gray-medium">
+                  <span>총 {pendingTerms.length}개의 용어가 승인을 기다리고 있습니다.</span>
+                  <span>💡 "모두 승인/거부" 버튼으로 전체 {pendingTerms.length}개를 일괄 처리할 수 있습니다.</span>
+                </div>
+              </div>
+            </div>
+          </>
         )}
       </section>
 
