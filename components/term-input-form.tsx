@@ -83,7 +83,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
         // Show success state
         setUploadSuccess({
           success: true,
-          message: "용어가 성공적으로 추가되었습니다.",
+          message: "용어가 성공적으로 업로드되었습니다. 관리자 승인 후 용어집에 추가됩니다.",
           addedCount: 1,
           duplicateCount: 0,
         })
@@ -284,7 +284,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
                 <div className="text-xs mt-1 space-y-1">
                   <p>• 추가된 용어: {uploadSuccess.addedCount}개</p>
                   {uploadSuccess.duplicateCount > 0 && <p>• 중복으로 건너뛴 용어: {uploadSuccess.duplicateCount}개</p>}
-                  <p className="text-green-700 font-medium">관리자 승인 후 용어집에 표시됩니다.</p>
+                  <p className="text-green-700 font-medium">✅ 관리자 승인 후 용어집에 표시됩니다.</p>
                 </div>
               )}
             </div>

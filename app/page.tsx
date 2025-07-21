@@ -69,7 +69,21 @@ export default function Home() {
     }
 
     const result = await addGlossaryTerm(formattedTerm)
-    // Don't close the modal automatically - let user close it manually
+
+    // Show success toast notification
+    if (result.success) {
+      toast({
+        title: "용어 업로드 완료",
+        description: "용어가 성공적으로 업로드되었습니다. 관리자 승인 후 용어집에 추가됩니다.",
+      })
+    } else {
+      toast({
+        title: "업로드 오류",
+        description: result.message,
+        variant: "destructive",
+      })
+    }
+
     return result
   }
 
