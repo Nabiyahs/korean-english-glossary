@@ -25,6 +25,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
   const [description, setDescription] = useState("")
   const [selectedDiscipline, setSelectedDiscipline] = useState<Discipline | null>(null)
   const [isProcessingFile, setIsProcessingFile] = useState(false)
+  const [fileProcessingStatus, setFileProcessingStatus] = useState<string>("")
 
   const disciplines = Object.keys(disciplineMap) as Discipline[]
   const { toast } = useToast()
@@ -83,13 +84,20 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
     const file = event.target.files?.[0]
     if (!file) return
 
+    console.log("File upload started:", file.name)
     setIsProcessingFile(true)
+    setFileProcessingStatus("파일을 읽는 중...")
 
     try {
       const text = await file.text()
+      console.log("File content read, length:", text.length)
+      setFileProcessingStatus("용어를 분석하는 중...")
+
       const lines = text.split("\n").filter((line) => line.trim() !== "" && !line.includes("==="))
+      console.log("Filtered lines:", lines.length)
 
       const terms: Omit<GlossaryTerm, "id" | "abbreviation" | "status" | "created_at" | "created_by">[] = []
+      let processedLines = 0
 
       for (const line of lines) {
         const parts = line.split("/").map((part) => part.trim())
@@ -107,52 +115,70 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
               description: description.trim(),
               discipline,
             })
+            processedLines++
           }
         }
       }
 
+      console.log("Terms processed:", terms.length)
+      setFileProcessingStatus(`${terms.length}개 용어를 업로드하는 중...`)
+
       if (terms.length > 0) {
         await onAddTermsFromText(terms)
+        console.log("Terms uploaded successfully")
+
+        setFileProcessingStatus("업로드 완료!")
         toast({
-          title: "업로드 완료",
-          description: `${terms.length}개 용어가 성공적으로 업로드되었습니다.`,
+          title: "✅ 업로드 성공",
+          description: `${terms.length}개 용어가 성공적으로 업로드되었습니다. 관리자 승인 후 표시됩니다.`,
         })
+
+        // Close modal after showing success
         setTimeout(() => {
+          setIsProcessingFile(false)
+          setFileProcessingStatus("")
           onClose?.()
-        }, 1500)
+        }, 2000)
       } else {
+        console.log("No valid terms found")
+        setFileProcessingStatus("")
         toast({
-          title: "업로드 실패",
-          description: "유효한 용어를 찾을 수 없습니다.",
+          title: "❌ 업로드 실패",
+          description: "유효한 용어를 찾을 수 없습니다. 파일 형식을 확인해주세요.",
           variant: "destructive",
         })
+        setIsProcessingFile(false)
       }
     } catch (error) {
       console.error("File processing error:", error)
+      setFileProcessingStatus("")
       toast({
-        title: "파일 오류",
-        description: "파일을 처리할 수 없습니다.",
+        title: "❌ 파일 오류",
+        description: "파일을 처리할 수 없습니다. 파일 형식을 확인해주세요.",
         variant: "destructive",
       })
-    } finally {
       setIsProcessingFile(false)
-      if (event.target) {
-        event.target.value = ""
-      }
+    }
+
+    // Reset file input
+    if (event.target) {
+      event.target.value = ""
     }
   }
 
   const downloadTemplate = () => {
     const templateContent = [
-      "=== SAMOO 용어집 템플릿 ===",
+      "=== SAMOO 용어집 템플릿 (이 헤더는 삭제하지 마세요) ===",
       "",
       "Gen / Project Management / 프로젝트 관리 / 프로젝트 전반 관리",
       "Arch / Building Design / 건물 설계 / 건축물 설계",
       "Elec / Power System / 전력 시스템 / 전력 공급 시스템",
       "Piping / Pipeline / 배관 / 유체 운반 관로",
       "",
-      "=== 공종 약어: Gen, Arch, Elec, Piping, Civil, I&C, FP, HVAC, Struct, Cell ===",
+      "=== 아래에 용어를 추가하세요 ===",
       "=== 형식: 공종약어 / 영어 / 한국어 / 설명(선택) ===",
+      "",
+      "// 여기에 새로운 용어를 추가하세요",
     ].join("\n")
 
     const blob = new Blob([templateContent], { type: "text/plain;charset=utf-8" })
@@ -222,19 +248,20 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
                 type="button"
                 onClick={() => setSelectedDiscipline(discipline)}
                 className={cn(
-                  "px-1 py-1 text-xs font-medium rounded transition-colors h-12 text-center",
+                  "px-1 py-1 text-xs font-medium rounded transition-colors h-8 text-center",
                   selectedDiscipline === discipline
                     ? "bg-samoo-blue text-white hover:bg-samoo-blue-dark"
                     : "bg-samoo-gray-light text-samoo-gray hover:bg-samoo-gray-medium/20 border border-samoo-gray-medium",
                 )}
               >
-                <div>
-                  <div className="text-xs font-medium">{disciplineMap[discipline].abbreviation}</div>
-                  <div className="text-xs opacity-75">{disciplineMap[discipline].koreanName}</div>
-                </div>
+                <div className="text-xs">{disciplineMap[discipline].abbreviation}</div>
               </Button>
             ))}
           </div>
+          <p className="text-xs text-samoo-gray-medium mt-1">
+            Gen=일반, Arch=건축, Elec=전기, Piping=배관, Civil=토목, I&C=제어, FP=소방, HVAC=공조, Struct=구조,
+            Cell=배터리
+          </p>
         </div>
 
         <Button type="submit" className="w-full h-8 text-sm bg-samoo-blue text-white hover:bg-samoo-blue-dark">
@@ -245,6 +272,19 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
       {/* File Upload Section - Compact */}
       <div className="border-t border-samoo-gray-light pt-3 mt-4">
         <Label className="text-xs font-medium text-samoo-gray mb-2 block">파일 업로드</Label>
+
+        {/* Guide Message */}
+        <div className="bg-amber-50 border border-amber-200 rounded p-2 mb-3">
+          <p className="text-xs text-amber-800 font-medium">📋 파일 업로드 가이드:</p>
+          <ul className="text-xs text-amber-700 mt-1 space-y-0.5">
+            <li>• 템플릿을 다운로드하여 사용하세요</li>
+            <li>
+              • <strong>헤더 부분(=== 줄)은 절대 삭제하지 마세요</strong>
+            </li>
+            <li>• 헤더 아래에 새로운 용어를 추가하세요</li>
+            <li>• 형식: 공종약어 / 영어 / 한국어 / 설명</li>
+          </ul>
+        </div>
 
         <div className="flex gap-2 mb-2">
           <Button
@@ -261,21 +301,19 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
               accept=".txt"
               onChange={handleFileUpload}
               disabled={isProcessingFile}
-              className="block w-full text-xs text-samoo-gray file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-samoo-blue file:text-white hover:file:bg-samoo-blue-dark file:cursor-pointer cursor-pointer"
+              className="block w-full text-xs text-samoo-gray file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-samoo-blue file:text-white hover:file:bg-samoo-blue-dark file:cursor-pointer cursor-pointer disabled:opacity-50"
             />
           </div>
         </div>
 
         {isProcessingFile && (
           <div className="bg-blue-50 border border-blue-200 rounded p-2 mb-2">
-            <p className="text-xs text-blue-800">📤 파일을 처리하는 중...</p>
+            <div className="flex items-center">
+              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-2"></div>
+              <p className="text-xs text-blue-800 font-medium">{fileProcessingStatus}</p>
+            </div>
           </div>
         )}
-
-        <div className="bg-blue-50 border border-blue-200 rounded p-2">
-          <p className="text-xs text-blue-800 font-medium">📝 업로드 가이드:</p>
-          <p className="text-xs text-blue-700 mt-1">템플릿 다운로드 → 용어 추가 → 파일 업로드</p>
-        </div>
       </div>
     </div>
   )
