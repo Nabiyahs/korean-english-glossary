@@ -241,13 +241,166 @@ export default function AdminPage() {
           </p>
         </div>
 
-        <AdminTermsTable
-          terms={allTerms}
-          onDeleteTerm={deleteGlossaryTerm}
-          onDeleteMultiple={deleteMultipleTerms}
-          onDeleteAll={deleteAllTerms}
-          onUpdateTerm={updateGlossaryTerm}
-        />
+        {currentView === "all" ? (
+          <AdminTermsTable
+            terms={allTerms}
+            onDeleteTerm={deleteGlossaryTerm}
+            onDeleteMultiple={deleteMultipleTerms}
+            onDeleteAll={deleteAllTerms}
+            onUpdateTerm={updateGlossaryTerm}
+          />
+        ) : (
+          <div className="space-y-8">
+            {disciplines.map((discipline) => {
+              const termsInDiscipline = allTerms.filter((term) => term.discipline === discipline)
+              const { koreanName, englishName } = disciplineMap[discipline]
+
+              if (termsInDiscipline.length === 0) return null
+
+              return (
+                <div key={discipline} className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-bold text-samoo-blue flex items-baseline gap-2">
+                      <span>{koreanName}</span>
+                      <span className="text-base font-medium text-samoo-gray-medium">{englishName}</span>
+                      <span className="text-sm font-normal text-samoo-gray-medium">({termsInDiscipline.length}개)</span>
+                    </h3>
+                  </div>
+
+                  <div className="rounded-lg border border-samoo-gray-light shadow-sm bg-white">
+                    <div className="max-h-[60vh] overflow-y-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="sticky top-0 bg-white z-10 border-b-2 border-samoo-gray-light">
+                          <tr style={{ backgroundColor: disciplineMap[discipline].color }}>
+                            <th className="p-3 text-xs font-medium text-samoo-gray text-center w-[40px]">
+                              <input
+                                type="checkbox"
+                                onChange={(e) => {
+                                  const isChecked = e.target.checked
+                                  termsInDiscipline.forEach((term) => {
+                                    // This would need to be connected to selection logic
+                                    console.log(`${isChecked ? "Select" : "Deselect"} ${term.id}`)
+                                  })
+                                }}
+                                className="rounded border-samoo-blue"
+                              />
+                            </th>
+                            <th className="p-3 text-xs font-medium text-samoo-gray">상태</th>
+                            <th className="p-3 text-xs font-medium text-samoo-gray">English</th>
+                            <th className="p-3 text-xs font-medium text-samoo-gray">한국어</th>
+                            <th className="p-3 text-xs font-medium text-samoo-gray">설명</th>
+                            <th className="p-3 text-xs font-medium text-samoo-gray text-center">작업</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {termsInDiscipline.map((term, index) => (
+                            <tr
+                              key={term.id}
+                              className={`border-b border-samoo-gray-light/50 hover:bg-samoo-gray-light/20 ${
+                                term.status === "pending" ? "bg-yellow-50/50" : ""
+                              }`}
+                              style={{ backgroundColor: disciplineMap[discipline].color }}
+                            >
+                              <td className="p-3 text-center">
+                                <input
+                                  type="checkbox"
+                                  className="rounded border-samoo-blue"
+                                  onChange={(e) => {
+                                    console.log(`${e.target.checked ? "Select" : "Deselect"} ${term.id}`)
+                                  }}
+                                />
+                              </td>
+                              <td className="p-3 text-xs">
+                                <span
+                                  className={`px-2 py-1 rounded text-xs font-medium ${
+                                    term.status === "pending"
+                                      ? "bg-yellow-100 text-yellow-800"
+                                      : "bg-green-100 text-green-800"
+                                  }`}
+                                >
+                                  {term.status === "pending" ? "대기" : "승인"}
+                                </span>
+                              </td>
+                              <td className="p-3 text-xs text-samoo-gray font-medium">{term.en}</td>
+                              <td className="p-3 text-xs text-samoo-gray font-medium">{term.kr}</td>
+                              <td className="p-3 text-xs text-samoo-gray-medium">{term.description || "설명 없음"}</td>
+                              <td className="p-3 text-center">
+                                <div className="flex gap-1 justify-center">
+                                  <button
+                                    onClick={() => console.log(`Edit ${term.id}`)}
+                                    className="h-6 w-6 text-blue-500 hover:bg-blue-100 rounded flex items-center justify-center"
+                                    title="수정"
+                                  >
+                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                      />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (confirm(`"${term.en}" 용어를 삭제하시겠습니까?`)) {
+                                        deleteGlossaryTerm(term.id).then((result) => {
+                                          if (result.success) {
+                                            fetchData() // Refresh data
+                                          }
+                                        })
+                                      }
+                                    }}
+                                    className="h-6 w-6 text-red-500 hover:bg-red-100 rounded flex items-center justify-center"
+                                    title="삭제"
+                                  >
+                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                      />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Footer for each discipline table */}
+                    <div className="bg-gray-50 border-t border-samoo-gray-light px-4 py-2">
+                      <div className="flex justify-between items-center text-xs text-samoo-gray-medium">
+                        <span>
+                          {koreanName} 공종: {termsInDiscipline.length}개 용어
+                        </span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              if (confirm(`${koreanName} 공종의 모든 용어를 삭제하시겠습니까?`)) {
+                                const disciplineTermIds = termsInDiscipline.map((t) => t.id)
+                                deleteMultipleTerms(disciplineTermIds).then((result) => {
+                                  if (result.success) {
+                                    fetchData() // Refresh data
+                                  }
+                                })
+                              }
+                            }}
+                            className="text-xs text-red-600 hover:text-red-800 underline"
+                          >
+                            공종 전체 삭제
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </section>
     </div>
   )

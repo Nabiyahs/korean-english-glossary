@@ -32,6 +32,8 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
     addedCount: number
     duplicateCount: number
   } | null>(null)
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [isProcessingFile, setIsProcessingFile] = useState(false)
 
   const disciplines = Object.keys(disciplineMap) as Discipline[]
   const { toast } = useToast()
@@ -39,6 +41,12 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
   /* ───────────────────────── individual term ──────────────────── */
   const handleAddIndividualTerm = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // If there's an uploaded file, process it instead
+    if (uploadedFile) {
+      await handleFileUpload()
+      return
+    }
 
     if (enTerm && krTerm && selectedDiscipline) {
       const lowerCaseEn = enTerm.toLowerCase()
@@ -72,12 +80,18 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
         setDescription("")
         setSelectedDiscipline(null)
 
-        // Show success state instead of toast
+        // Show success state
         setUploadSuccess({
           success: true,
           message: "용어가 성공적으로 추가되었습니다.",
           addedCount: 1,
           duplicateCount: 0,
+        })
+
+        // Show success toast as well
+        toast({
+          title: "성공",
+          description: "용어가 성공적으로 추가되었습니다. 관리자 승인 후 표시됩니다.",
         })
       } catch (error) {
         console.error("Error adding term:", error)
@@ -100,16 +114,28 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
   }
 
   /* ───────────────────────── file upload ──────────────────── */
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (!file) return
+    if (file) {
+      setUploadedFile(file)
+      setUploadedFileName(file.name)
+      setUploadSuccess(null) // Reset previous upload status
+    }
 
-    setUploadedFileName(file.name)
-    setIsSubmitting(true)
-    setUploadSuccess(null) // Reset previous upload status
+    // Reset file input
+    if (event.target) {
+      event.target.value = ""
+    }
+  }
+
+  const handleFileUpload = async () => {
+    if (!uploadedFile) return
+
+    setIsProcessingFile(true)
+    setUploadSuccess(null)
 
     try {
-      const text = await file.text()
+      const text = await uploadedFile.text()
       const lines = text.split("\n").filter((line) => line.trim() !== "" && !line.includes("==="))
 
       const terms: Omit<GlossaryTerm, "id" | "abbreviation" | "status" | "created_at" | "created_by">[] = []
@@ -158,13 +184,17 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
           }
         }
 
-        // Set upload success state - no toast notification
+        // Set upload success state
         setUploadSuccess({
           success: true,
           message: `${addedCount}개 용어가 성공적으로 업로드되었습니다.`,
           addedCount,
           duplicateCount,
         })
+
+        // Clear the uploaded file
+        setUploadedFile(null)
+        setUploadedFileName("")
       } else {
         setUploadSuccess({
           success: false,
@@ -182,20 +212,8 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
         duplicateCount: 0,
       })
     } finally {
-      setIsSubmitting(false)
+      setIsProcessingFile(false)
     }
-
-    // Reset file input
-    if (event.target) {
-      event.target.value = ""
-    }
-  }
-
-  const handleCloseAfterUpload = () => {
-    // Longer delay to prevent screen blinks
-    setTimeout(() => {
-      onClose?.()
-    }, 1200)
   }
 
   const downloadTemplate = () => {
@@ -220,6 +238,33 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
     link.remove()
     URL.revokeObjectURL(url)
   }
+
+  // Determine button state and styling
+  const getButtonState = () => {
+    if (isSubmitting || isProcessingFile) {
+      return {
+        text: uploadedFile ? "처리 중..." : "추가 중...",
+        className: "bg-samoo-blue text-white",
+        disabled: true,
+      }
+    }
+
+    if (uploadedFile) {
+      return {
+        text: "추가",
+        className: "bg-green-600 text-white hover:bg-green-700 animate-pulse",
+        disabled: false,
+      }
+    }
+
+    return {
+      text: "추가",
+      className: "bg-samoo-blue text-white hover:bg-samoo-blue-dark",
+      disabled: false,
+    }
+  }
+
+  const buttonState = getButtonState()
 
   return (
     <div className="p-4 max-h-[75vh] overflow-y-auto">
@@ -250,15 +295,6 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
               )}
             </div>
           </div>
-          <div className="mt-3 flex justify-end">
-            <Button
-              onClick={handleCloseAfterUpload}
-              size="sm"
-              className="px-3 py-1 text-xs bg-samoo-blue text-white hover:bg-samoo-blue-dark"
-            >
-              확인
-            </Button>
-          </div>
         </div>
       )}
 
@@ -276,7 +312,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
               onChange={(e) => setEnTerm(e.target.value)}
               className="h-8 text-sm border-samoo-gray-medium focus:ring-samoo-blue focus:border-samoo-blue"
               placeholder="영어 용어"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isProcessingFile}
             />
           </div>
           <div>
@@ -289,7 +325,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
               onChange={(e) => setKrTerm(e.target.value)}
               className="h-8 text-sm border-samoo-gray-medium focus:ring-samoo-blue focus:border-samoo-blue"
               placeholder="한국어 용어"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isProcessingFile}
             />
           </div>
         </div>
@@ -305,7 +341,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
             onChange={(e) => setDescription(e.target.value)}
             placeholder="용어 설명을 입력하세요"
             className="h-8 text-sm border-samoo-gray-medium focus:ring-samoo-blue focus:border-samoo-blue"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isProcessingFile}
           />
         </div>
 
@@ -318,7 +354,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
                 key={discipline}
                 type="button"
                 onClick={() => setSelectedDiscipline(selectedDiscipline === discipline ? null : discipline)}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isProcessingFile}
                 className={cn(
                   "h-6 px-1 py-0 text-xs font-medium rounded transition-all duration-200 border",
                   selectedDiscipline === discipline
@@ -332,13 +368,13 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
           </div>
         </div>
 
-        {/* Submit Button */}
+        {/* Submit Button - Changes color when file is uploaded */}
         <Button
           type="submit"
-          disabled={isSubmitting}
-          className="w-full h-9 text-sm font-medium bg-samoo-blue text-white hover:bg-samoo-blue-dark transition-colors rounded-lg"
+          disabled={buttonState.disabled}
+          className={cn("w-full h-9 text-sm font-medium transition-colors rounded-lg", buttonState.className)}
         >
-          {isSubmitting ? "추가 중..." : "추가"}
+          {buttonState.text}
         </Button>
       </form>
 
@@ -351,28 +387,28 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
             <input
               type="file"
               accept=".txt"
-              onChange={handleFileUpload}
-              disabled={isSubmitting}
+              onChange={handleFileSelect}
+              disabled={isProcessingFile || isSubmitting}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
               id="file-upload"
             />
             <Button
               type="button"
               variant="outline"
-              disabled={isSubmitting}
+              disabled={isProcessingFile || isSubmitting}
               className="w-full h-8 text-xs border-samoo-gray-medium text-samoo-gray hover:bg-samoo-gray-light/20 bg-white"
               asChild
             >
               <label htmlFor="file-upload" className="cursor-pointer flex items-center justify-center">
                 <Upload className="w-3 h-3 mr-1" />
-                {isSubmitting ? "업로드 중..." : "파일 선택"}
+                파일 선택
               </label>
             </Button>
           </div>
           <Button
             type="button"
             onClick={downloadTemplate}
-            disabled={isSubmitting}
+            disabled={isProcessingFile || isSubmitting}
             variant="outline"
             className="h-8 px-2 text-xs border-samoo-gray-medium text-samoo-gray hover:bg-samoo-gray-light/20 bg-white"
           >
@@ -381,7 +417,12 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
           </Button>
         </div>
 
-        {uploadedFileName && <div className="mt-1 text-xs text-samoo-blue">선택된 파일: {uploadedFileName}</div>}
+        {uploadedFileName && (
+          <div className="mt-2 text-xs text-samoo-blue">
+            선택된 파일: {uploadedFileName}
+            <div className="text-green-600 font-medium mt-1">⬆️ 위의 "추가" 버튼을 클릭하여 파일을 업로드하세요</div>
+          </div>
+        )}
 
         <div className="bg-blue-50 border border-blue-200 rounded p-2 mt-2">
           <p className="text-xs text-blue-800">

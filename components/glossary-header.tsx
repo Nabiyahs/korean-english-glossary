@@ -124,12 +124,13 @@ export function GlossaryHeader({
             <TermInputForm
               onAddTerm={async (term) => {
                 await onAddTerm(term)
-                setIsAddTermModalOpen(false)
+                // Don't close the modal automatically
               }}
               onAddTermsFromText={async (terms) => {
                 await onAddTermsFromText(terms)
-                setIsAddTermModalOpen(false)
+                // Don't close the modal automatically
               }}
+              onClose={() => setIsAddTermModalOpen(false)}
               existingGlossary={existingGlossary}
             />
           </DialogContent>
