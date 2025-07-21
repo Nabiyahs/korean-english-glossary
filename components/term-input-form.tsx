@@ -60,7 +60,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
       setKrTerm("")
       setDescription("")
       setSelectedDiscipline(null)
-      onClose?.()
+      // Remove onClose?.() from here - it will be called by parent component
     } else {
       alert("모든 필수 필드를 채워주세요 (English, 한국어, 공종).")
     }
@@ -108,6 +108,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
           title: "업로드 완료",
           description: `${terms.length}개의 용어가 처리되었습니다.`,
         })
+        onClose?.() // Add this line to close the modal after successful upload
       } else {
         toast({
           title: "업로드 실패",
@@ -129,6 +130,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
       if (event.target) {
         event.target.value = ""
       }
+      onClose?.() // Move the close call here to ensure it happens after all processing
     }
   }
 
