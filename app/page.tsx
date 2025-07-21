@@ -69,19 +69,8 @@ export default function Home() {
     }
 
     const result = await addGlossaryTerm(formattedTerm)
-    if (result.success) {
-      toast({
-        title: "성공",
-        description: result.message,
-      })
-      // Don't refresh the data since the term is pending and won't show up for regular users
-    } else {
-      toast({
-        title: "오류",
-        description: result.message,
-        variant: "destructive",
-      })
-    }
+    // Remove toast notification - let the form handle the success message
+    return result
   }
 
   const handleAddTermsFromText = async (
@@ -117,27 +106,8 @@ export default function Home() {
       }
     }
 
-    if (addedCount > 0) {
-      toast({
-        title: "업로드 완료",
-        description: `${addedCount}개의 용어가 추가되었습니다. 관리자 승인 후 표시됩니다.`,
-      })
-      // Don't refresh the data since the terms are pending and won't show up for regular users
-    }
-    if (duplicateCount > 0) {
-      toast({
-        title: "알림",
-        description: `${duplicateCount}개의 중복 용어는 건너뛰었습니다.`,
-        variant: "default",
-      })
-    }
-    if (addedCount === 0 && duplicateCount === 0) {
-      toast({
-        title: "알림",
-        description: "가져올 유효한 용어가 없습니다.",
-        variant: "default",
-      })
-    }
+    // Remove all toast notifications - let the form handle the success message
+    return { addedCount, duplicateCount }
   }
 
   const handleDeleteTerm = async (id: string) => {

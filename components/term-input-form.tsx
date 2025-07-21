@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { type Discipline, type GlossaryTerm, disciplineMap } from "@/lib/data"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
-import { Download, Upload } from "lucide-react"
+import { Download, Upload, CheckCircle } from "lucide-react"
 
 interface TermInputFormProps {
   onAddTerm: (term: Omit<GlossaryTerm, "id" | "abbreviation" | "status" | "created_at" | "created_by">) => Promise<void>
@@ -26,6 +26,12 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
   const [selectedDiscipline, setSelectedDiscipline] = useState<Discipline | null>(null)
   const [uploadedFileName, setUploadedFileName] = useState<string>("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [uploadSuccess, setUploadSuccess] = useState<{
+    success: boolean
+    message: string
+    addedCount: number
+    duplicateCount: number
+  } | null>(null)
 
   const disciplines = Object.keys(disciplineMap) as Discipline[]
   const { toast } = useToast()
@@ -60,25 +66,26 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
           discipline: selectedDiscipline,
         })
 
-        toast({
-          title: "✅ 용어 추가 완료",
-          description: "용어가 성공적으로 추가되었습니다. 관리자의 승인 후 등록됩니다.",
-        })
-
-        // Clear form
+        // Clear form immediately
         setEnTerm("")
         setKrTerm("")
         setDescription("")
         setSelectedDiscipline(null)
 
-        // Close popup only after successful submission
-        onClose?.()
+        // Show success state instead of toast
+        setUploadSuccess({
+          success: true,
+          message: "용어가 성공적으로 추가되었습니다.",
+          addedCount: 1,
+          duplicateCount: 0,
+        })
       } catch (error) {
         console.error("Error adding term:", error)
-        toast({
-          title: "❌ 추가 실패",
-          description: "용어 추가 중 오류가 발생했습니다.",
-          variant: "destructive",
+        setUploadSuccess({
+          success: false,
+          message: "용어 추가 중 오류가 발생했습니다.",
+          addedCount: 0,
+          duplicateCount: 0,
         })
       } finally {
         setIsSubmitting(false)
@@ -99,6 +106,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
 
     setUploadedFileName(file.name)
     setIsSubmitting(true)
+    setUploadSuccess(null) // Reset previous upload status
 
     try {
       const text = await file.text()
@@ -127,28 +135,51 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
       }
 
       if (terms.length > 0) {
-        await onAddTermsFromText(terms)
+        let addedCount = 0
+        let duplicateCount = 0
 
-        toast({
-          title: "✅ 파일 업로드 완료",
-          description: `${terms.length}개 용어가 성공적으로 업로드되었습니다. 관리자의 승인 후 등록됩니다.`,
+        for (const term of terms) {
+          const isDuplicate = existingGlossary.some(
+            (existingTerm) =>
+              existingTerm.en.toLowerCase() === term.en.toLowerCase() &&
+              existingTerm.kr.toLowerCase() === term.kr.toLowerCase(),
+          )
+
+          if (isDuplicate) {
+            duplicateCount++
+            continue
+          }
+
+          try {
+            await onAddTerm(term)
+            addedCount++
+          } catch (error) {
+            console.error(`Failed to add term ${term.en}:`, error)
+          }
+        }
+
+        // Set upload success state - no toast notification
+        setUploadSuccess({
+          success: true,
+          message: `${addedCount}개 용어가 성공적으로 업로드되었습니다.`,
+          addedCount,
+          duplicateCount,
         })
-
-        // Close popup only after successful upload
-        onClose?.()
       } else {
-        toast({
-          title: "❌ 업로드 실패",
-          description: "유효한 용어를 찾을 수 없습니다.",
-          variant: "destructive",
+        setUploadSuccess({
+          success: false,
+          message: "유효한 용어를 찾을 수 없습니다.",
+          addedCount: 0,
+          duplicateCount: 0,
         })
       }
     } catch (error) {
       console.error("File processing error:", error)
-      toast({
-        title: "❌ 파일 오류",
-        description: "파일을 처리할 수 없습니다.",
-        variant: "destructive",
+      setUploadSuccess({
+        success: false,
+        message: "파일을 처리할 수 없습니다.",
+        addedCount: 0,
+        duplicateCount: 0,
       })
     } finally {
       setIsSubmitting(false)
@@ -158,6 +189,13 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
     if (event.target) {
       event.target.value = ""
     }
+  }
+
+  const handleCloseAfterUpload = () => {
+    // Longer delay to prevent screen blinks
+    setTimeout(() => {
+      onClose?.()
+    }, 1200)
   }
 
   const downloadTemplate = () => {
@@ -184,37 +222,72 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
   }
 
   return (
-    <div className="p-6 max-h-[75vh] overflow-y-auto">
-      <div className="text-center mb-6">
-        <h3 className="text-xl font-semibold text-samoo-blue">용어 추가</h3>
+    <div className="p-4 max-h-[75vh] overflow-y-auto">
+      <div className="text-center mb-4">
+        <h3 className="text-lg font-semibold text-samoo-blue">용어 추가</h3>
       </div>
 
+      {/* Upload Success Message */}
+      {uploadSuccess && (
+        <div
+          className={cn(
+            "mb-4 p-3 rounded-lg border",
+            uploadSuccess.success
+              ? "bg-green-50 border-green-200 text-green-800"
+              : "bg-red-50 border-red-200 text-red-800",
+          )}
+        >
+          <div className="flex items-center gap-2">
+            {uploadSuccess.success && <CheckCircle className="w-4 h-4 text-green-600" />}
+            <div className="flex-1">
+              <p className="text-sm font-medium">{uploadSuccess.message}</p>
+              {uploadSuccess.success && (
+                <div className="text-xs mt-1 space-y-1">
+                  <p>• 추가된 용어: {uploadSuccess.addedCount}개</p>
+                  {uploadSuccess.duplicateCount > 0 && <p>• 중복으로 건너뛴 용어: {uploadSuccess.duplicateCount}개</p>}
+                  <p className="text-green-700 font-medium">관리자 승인 후 용어집에 표시됩니다.</p>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <Button
+              onClick={handleCloseAfterUpload}
+              size="sm"
+              className="px-3 py-1 text-xs bg-samoo-blue text-white hover:bg-samoo-blue-dark"
+            >
+              확인
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Individual Term Form */}
-      <form onSubmit={handleAddIndividualTerm} className="space-y-4">
+      <form onSubmit={handleAddIndividualTerm} className="space-y-3">
         {/* English & Korean Input */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2">
           <div>
-            <Label htmlFor="en-term" className="text-sm font-medium text-samoo-gray mb-2 block">
+            <Label htmlFor="en-term" className="text-xs font-medium text-samoo-gray mb-1 block">
               English
             </Label>
             <Input
               id="en-term"
               value={enTerm}
               onChange={(e) => setEnTerm(e.target.value)}
-              className="h-9 border-samoo-gray-medium focus:ring-samoo-blue focus:border-samoo-blue"
+              className="h-8 text-sm border-samoo-gray-medium focus:ring-samoo-blue focus:border-samoo-blue"
               placeholder="영어 용어"
               disabled={isSubmitting}
             />
           </div>
           <div>
-            <Label htmlFor="kr-term" className="text-sm font-medium text-samoo-gray mb-2 block">
+            <Label htmlFor="kr-term" className="text-xs font-medium text-samoo-gray mb-1 block">
               한국어
             </Label>
             <Input
               id="kr-term"
               value={krTerm}
               onChange={(e) => setKrTerm(e.target.value)}
-              className="h-9 border-samoo-gray-medium focus:ring-samoo-blue focus:border-samoo-blue"
+              className="h-8 text-sm border-samoo-gray-medium focus:ring-samoo-blue focus:border-samoo-blue"
               placeholder="한국어 용어"
               disabled={isSubmitting}
             />
@@ -223,7 +296,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
 
         {/* Description */}
         <div>
-          <Label htmlFor="description" className="text-sm font-medium text-samoo-gray mb-2 block">
+          <Label htmlFor="description" className="text-xs font-medium text-samoo-gray mb-1 block">
             설명 (선택사항)
           </Label>
           <Input
@@ -231,15 +304,15 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="용어 설명을 입력하세요"
-            className="h-9 border-samoo-gray-medium focus:ring-samoo-blue focus:border-samoo-blue"
+            className="h-8 text-sm border-samoo-gray-medium focus:ring-samoo-blue focus:border-samoo-blue"
             disabled={isSubmitting}
           />
         </div>
 
-        {/* Discipline Selection - Smaller Grid */}
+        {/* Discipline Selection - Ultra Compact with 5 columns */}
         <div>
-          <Label className="text-sm font-medium text-samoo-gray mb-2 block">공종 선택</Label>
-          <div className="grid grid-cols-2 gap-2">
+          <Label className="text-xs font-medium text-samoo-gray mb-1 block">공종 선택</Label>
+          <div className="grid grid-cols-5 gap-1">
             {disciplines.map((discipline) => (
               <Button
                 key={discipline}
@@ -247,13 +320,13 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
                 onClick={() => setSelectedDiscipline(selectedDiscipline === discipline ? null : discipline)}
                 disabled={isSubmitting}
                 className={cn(
-                  "h-8 text-xs font-medium rounded-md transition-all duration-200 border",
+                  "h-6 px-1 py-0 text-xs font-medium rounded transition-all duration-200 border",
                   selectedDiscipline === discipline
-                    ? "bg-samoo-blue text-white border-samoo-blue shadow-sm"
+                    ? "bg-samoo-blue text-white border-samoo-blue"
                     : "bg-white text-samoo-gray border-samoo-gray-light hover:border-samoo-blue hover:bg-samoo-blue/5",
                 )}
               >
-                <span className="block truncate">{disciplineMap[discipline].koreanName}</span>
+                <span className="truncate">{disciplineMap[discipline].koreanName}</span>
               </Button>
             ))}
           </div>
@@ -263,17 +336,17 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
         <Button
           type="submit"
           disabled={isSubmitting}
-          className="w-full h-10 text-sm font-medium bg-samoo-blue text-white hover:bg-samoo-blue-dark transition-colors rounded-lg"
+          className="w-full h-9 text-sm font-medium bg-samoo-blue text-white hover:bg-samoo-blue-dark transition-colors rounded-lg"
         >
           {isSubmitting ? "추가 중..." : "추가"}
         </Button>
       </form>
 
       {/* File Upload Section */}
-      <div className="border-t border-samoo-gray-light pt-5 mt-5">
-        <Label className="text-sm font-medium text-samoo-gray mb-3 block">파일 업로드</Label>
+      <div className="border-t border-samoo-gray-light pt-3 mt-3">
+        <Label className="text-xs font-medium text-samoo-gray mb-2 block">파일 업로드</Label>
 
-        <div className="flex gap-2">
+        <div className="flex gap-1">
           <div className="flex-1 relative">
             <input
               type="file"
@@ -287,11 +360,11 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
               type="button"
               variant="outline"
               disabled={isSubmitting}
-              className="w-full h-10 border-samoo-gray-medium text-samoo-gray hover:bg-samoo-gray-light/20 bg-white"
+              className="w-full h-8 text-xs border-samoo-gray-medium text-samoo-gray hover:bg-samoo-gray-light/20 bg-white"
               asChild
             >
               <label htmlFor="file-upload" className="cursor-pointer flex items-center justify-center">
-                <Upload className="w-4 h-4 mr-2" />
+                <Upload className="w-3 h-3 mr-1" />
                 {isSubmitting ? "업로드 중..." : "파일 선택"}
               </label>
             </Button>
@@ -301,16 +374,16 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
             onClick={downloadTemplate}
             disabled={isSubmitting}
             variant="outline"
-            className="h-10 px-3 border-samoo-gray-medium text-samoo-gray hover:bg-samoo-gray-light/20 bg-white"
+            className="h-8 px-2 text-xs border-samoo-gray-medium text-samoo-gray hover:bg-samoo-gray-light/20 bg-white"
           >
-            <Download className="w-4 h-4 mr-1" />
+            <Download className="w-3 h-3 mr-1" />
             템플릿
           </Button>
         </div>
 
-        {uploadedFileName && <div className="mt-2 text-sm text-samoo-blue">선택된 파일: {uploadedFileName}</div>}
+        {uploadedFileName && <div className="mt-1 text-xs text-samoo-blue">선택된 파일: {uploadedFileName}</div>}
 
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3">
+        <div className="bg-blue-50 border border-blue-200 rounded p-2 mt-2">
           <p className="text-xs text-blue-800">
             💡 <strong>템플릿을 다운로드</strong>하여 형식에 맞게 작성한 후 업로드하세요.
           </p>

@@ -187,3 +187,44 @@
     padding-right: 2rem;
   }
 }
+
+/* Toast notifications - positioned at top with site-matching colors */
+[data-sonner-toaster] {
+  position: fixed !important;
+  top: 1rem !important;
+  right: 1rem !important;
+  z-index: 9999 !important;
+}
+
+[data-sonner-toast] {
+  background: white !important;
+  border: 1px solid #e5e7eb !important;
+  border-left: 4px solid #0047ab !important; /* samoo-blue */
+  box-shadow: 0 4px 12px rgba(0, 71, 171, 0.1) !important;
+  border-radius: 0.5rem !important;
+  padding: 1rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+[data-sonner-toast][data-type="success"] {
+  border-left-color: #10b981 !important; /* green */
+  background: #f0fdf4 !important;
+}
+
+[data-sonner-toast][data-type="error"] {
+  border-left-color: #ef4444 !important; /* red */
+  background: #fef2f2 !important;
+}
+
+[data-sonner-toast] [data-title] {
+  color: #0047ab !important; /* samoo-blue */
+  font-weight: 600 !important;
+  font-size: 0.875rem !important;
+  margin-bottom: 0.25rem !important;
+}
+
+[data-sonner-toast] [data-description] {
+  color: #374151 !important; /* samoo-gray */
+  font-size: 0.8125rem !important;
+  line-height: 1.4 !important;
+}

@@ -12,7 +12,7 @@ import {
   deleteAllTerms,
   updateGlossaryTerm,
 } from "../actions"
-import { disciplineMap, type Discipline, disciplineOrder } from "@/lib/data"
+import { disciplineMap, type Discipline } from "@/lib/data"
 import { AdminActionButtons } from "@/components/admin-action-buttons"
 import { AdminBulkActions } from "@/components/admin-bulk-actions"
 import { AdminTermsTable } from "@/components/admin-terms-table"
@@ -20,7 +20,7 @@ import { DuplicateComparisonSection } from "@/components/duplicate-comparison-se
 import { DebugInfo } from "@/components/debug-info"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { List, Table } from 'lucide-react'
+import { List, Table } from "lucide-react"
 import type { GlossaryTerm } from "@/lib/data"
 
 export default function AdminPage() {
@@ -77,14 +77,9 @@ export default function AdminPage() {
           <thead className="sticky top-0 bg-yellow-50 z-10">
             <tr className="border-b-2 border-yellow-200">
               <th className="p-4 text-sm font-semibold text-samoo-gray">
-                #
-                <span className="text-xs font-normal text-samoo-gray-medium ml-1">
-                  (총 {terms.length}개)
-                </span>
+                #<span className="text-xs font-normal text-samoo-gray-medium ml-1">(총 {terms.length}개)</span>
               </th>
-              {currentView === "all" && (
-                <th className="p-4 text-sm font-semibold text-samoo-gray">공종</th>
-              )}
+              <th className="p-4 text-sm font-semibold text-samoo-gray">공종</th>
               <th className="p-4 text-sm font-semibold text-samoo-gray">English</th>
               <th className="p-4 text-sm font-semibold text-samoo-gray">한국어</th>
               <th className="p-4 text-sm font-semibold text-samoo-gray">설명</th>
@@ -101,13 +96,11 @@ export default function AdminPage() {
                 style={{ backgroundColor: discipline ? disciplineMap[discipline].color : undefined }}
               >
                 <td className="p-4 text-sm text-samoo-gray-medium font-mono">{index + 1}</td>
-                {currentView === "all" && (
-                  <td className="p-4 text-sm">
-                    <span className="px-2 py-1 bg-samoo-blue/10 text-samoo-blue rounded text-xs font-medium">
-                      {disciplineMap[term.discipline].abbreviation}
-                    </span>
-                  </td>
-                )}
+                <td className="p-4 text-sm">
+                  <span className="px-2 py-1 bg-samoo-blue/10 text-samoo-blue rounded text-xs font-medium">
+                    {disciplineMap[term.discipline].abbreviation}
+                  </span>
+                </td>
                 <td className="p-4 text-sm font-medium text-samoo-gray">{term.en}</td>
                 <td className="p-4 text-sm font-medium text-samoo-gray">{term.kr}</td>
                 <td className="p-4 text-sm text-samoo-gray-medium max-w-xs truncate" title={term.description}>
@@ -164,36 +157,7 @@ export default function AdminPage() {
       {/* Pending Terms Section */}
       <section className="mb-12">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-4">
-            <h2 className="text-2xl font-semibold text-samoo-gray">
-              승인 대기 용어 ({pendingTerms.length}개)
-            </h2>
-            {/* View Toggle for Pending Terms */}
-            <div className="flex rounded-md overflow-hidden border border-samoo-blue">
-              <Button
-                onClick={() => setCurrentView("discipline")}
-                className={cn(
-                  "px-4 py-2 text-sm font-medium transition-colors",
-                  currentView === "discipline"
-                    ? "bg-samoo-blue text-white"
-                    : "bg-white text-samoo-blue hover:bg-samoo-blue/10",
-                )}
-              >
-                <List className="w-4 h-4 mr-2" />
-                공종별 보기
-              </Button>
-              <Button
-                onClick={() => setCurrentView("all")}
-                className={cn(
-                  "px-4 py-2 text-sm font-medium transition-colors",
-                  currentView === "all" ? "bg-samoo-blue text-white" : "bg-white text-samoo-blue hover:bg-samoo-blue/10",
-                )}
-              >
-                <Table className="w-4 h-4 mr-2" />
-                전체 보기
-              </Button>
-            </div>
-          </div>
+          <h2 className="text-2xl font-semibold text-samoo-gray">승인 대기 용어 ({pendingTerms.length}개)</h2>
           {pendingTerms.length > 0 && (
             <AdminBulkActions
               pendingCount={pendingTerms.length}
@@ -229,39 +193,47 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* Render based on view mode */}
-            {currentView === "all" ? (
-              renderPendingTermsTable(pendingTerms)
-            ) : (
-              <div className="space-y-6">
-                {disciplines.map((discipline) => {
-                  const termsInDiscipline = pendingTerms.filter((term) => term.discipline === discipline)
-                  if (termsInDiscipline.length === 0) return null
-
-                  const { koreanName, englishName } = disciplineMap[discipline]
-
-                  return (
-                    <div key={discipline}>
-                      <h3 className="text-lg font-bold text-samoo-blue mb-3 flex items-baseline gap-2">
-                        <span>{koreanName}</span>
-                        <span className="text-base font-medium text-samoo-gray-medium">{englishName}</span>
-                        <span className="text-sm font-normal text-samoo-gray-medium">
-                          ({termsInDiscipline.length}개)
-                        </span>
-                      </h3>
-                      {renderPendingTermsTable(termsInDiscipline, discipline)}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+            {/* Always show as single table for pending terms */}
+            {renderPendingTermsTable(pendingTerms)}
           </>
         )}
       </section>
 
       {/* All Terms Management Section */}
       <section>
-        <h2 className="text-2xl font-semibold text-samoo-gray mb-4">전체 용어 관리 ({allTerms.length}개)</h2>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-4">
+            <h2 className="text-2xl font-semibold text-samoo-gray">전체 용어 관리 ({allTerms.length}개)</h2>
+            {/* View Toggle moved here */}
+            <div className="flex rounded-md overflow-hidden border border-samoo-blue">
+              <Button
+                onClick={() => setCurrentView("discipline")}
+                className={cn(
+                  "px-4 py-2 text-sm font-medium transition-colors",
+                  currentView === "discipline"
+                    ? "bg-samoo-blue text-white"
+                    : "bg-white text-samoo-blue hover:bg-samoo-blue/10",
+                )}
+              >
+                <List className="w-4 h-4 mr-2" />
+                공종별 보기
+              </Button>
+              <Button
+                onClick={() => setCurrentView("all")}
+                className={cn(
+                  "px-4 py-2 text-sm font-medium transition-colors",
+                  currentView === "all"
+                    ? "bg-samoo-blue text-white"
+                    : "bg-white text-samoo-blue hover:bg-samoo-blue/10",
+                )}
+              >
+                <Table className="w-4 h-4 mr-2" />
+                전체 보기
+              </Button>
+            </div>
+          </div>
+        </div>
+
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
           <p className="text-blue-800 text-sm">
             💡 <strong>새로운 기능:</strong> 체크박스로 여러 용어를 선택하여 일괄 삭제하거나, 개별 용어를 수정할 수

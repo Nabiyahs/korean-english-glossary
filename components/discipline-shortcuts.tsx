@@ -9,7 +9,7 @@ import {
   Briefcase,
   Building,
   Zap,
-  PipetteIcon as Pipe,
+  Wrench,
   Mountain,
   Gauge,
   FireExtinguisher,
@@ -29,7 +29,7 @@ const disciplineIcons: Record<Discipline, React.ElementType> = {
   "프로젝트 일반 용어": Briefcase,
   Architecture: Building,
   Electrical: Zap,
-  Piping: Pipe,
+  Piping: Wrench, // Changed from PipetteIcon to Wrench (🔧)
   Civil: Mountain,
   "Instrument & Control": Gauge,
   "Fire Protection": FireExtinguisher,
@@ -57,10 +57,10 @@ export function DisciplineShortcuts({
   }
 
   return (
-    <div className="mb-4 sm:mb-6">
-      {/* Mobile: Horizontal scroll with more compact sizing */}
+    <div className="mb-6 sm:mb-8">
+      {/* Mobile: Horizontal scroll with compact sizing */}
       <div className="sm:hidden">
-        <div className="flex gap-1 overflow-x-auto pb-2 scrollbar-hide px-1">
+        <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-hide">
           {disciplines.map((discipline) => {
             const Icon = disciplineIcons[discipline]
             const koreanName = disciplineMap[discipline].koreanName
@@ -71,10 +71,10 @@ export function DisciplineShortcuts({
                 key={discipline}
                 onClick={() => handleDisciplineClick(discipline)}
                 className={cn(
-                  "px-2 py-1 text-xs font-medium rounded-full transition-colors flex items-center gap-1 whitespace-nowrap flex-shrink-0 min-w-fit border",
+                  "px-2 py-1.5 text-xs font-medium rounded-full transition-colors flex items-center gap-1 whitespace-nowrap flex-shrink-0 min-w-fit",
                   isActive
-                    ? "bg-samoo-blue text-white border-samoo-blue hover:bg-samoo-blue-dark shadow-sm"
-                    : "bg-white text-samoo-gray border-samoo-gray-light hover:bg-samoo-blue/5 hover:border-samoo-blue/30",
+                    ? "bg-samoo-blue text-white border-samoo-blue hover:bg-samoo-blue-dark"
+                    : "bg-samoo-gray-button-default text-samoo-gray-medium border-samoo-gray-light hover:bg-samoo-gray-button-hover",
                 )}
               >
                 <Icon className="w-3 h-3" />
@@ -85,8 +85,8 @@ export function DisciplineShortcuts({
         </div>
       </div>
 
-      {/* Desktop: Improved flex wrap with better spacing */}
-      <div className="hidden sm:flex flex-wrap gap-2 justify-center">
+      {/* Desktop: Flex wrap */}
+      <div className="hidden sm:flex flex-wrap gap-2">
         {disciplines.map((discipline) => {
           const Icon = disciplineIcons[discipline]
           const koreanName = disciplineMap[discipline].koreanName
@@ -97,10 +97,10 @@ export function DisciplineShortcuts({
               key={discipline}
               onClick={() => handleDisciplineClick(discipline)}
               className={cn(
-                "px-3 py-2 text-sm font-medium rounded-full transition-all duration-200 flex items-center gap-2 border shadow-sm hover:shadow-md",
+                "px-4 py-2 text-sm font-medium rounded-full transition-colors flex items-center gap-2",
                 isActive
-                  ? "bg-samoo-blue text-white border-samoo-blue hover:bg-samoo-blue-dark transform scale-105"
-                  : "bg-white text-samoo-gray border-samoo-gray-light hover:bg-samoo-blue/5 hover:border-samoo-blue/30 hover:text-samoo-blue",
+                  ? "bg-samoo-blue text-white border-samoo-blue hover:bg-samoo-blue-dark"
+                  : "bg-samoo-gray-button-default text-samoo-gray-medium border-samoo-gray-light hover:bg-samoo-gray-button-hover",
               )}
             >
               <Icon className="w-4 h-4" />
