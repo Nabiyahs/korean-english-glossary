@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { type Discipline, type GlossaryTerm, disciplineMap } from "@/lib/data"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
-import { Download, Upload, CheckCircle } from "lucide-react"
+import { Download, Upload, CheckCircle, AlertTriangle } from "lucide-react"
 
 interface TermInputFormProps {
   onAddTerm: (term: Omit<GlossaryTerm, "id" | "abbreviation" | "status" | "created_at" | "created_by">) => Promise<void>
@@ -19,6 +19,16 @@ interface TermInputFormProps {
   existingGlossary: GlossaryTerm[]
 }
 
+interface FileProcessingResult {
+  success: boolean
+  message: string
+  addedCount: number
+  duplicateCount: number
+  skippedCount: number
+  skippedReasons: string[]
+  totalProcessed: number
+}
+
 export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existingGlossary }: TermInputFormProps) {
   const [enTerm, setEnTerm] = useState("")
   const [krTerm, setKrTerm] = useState("")
@@ -26,17 +36,17 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
   const [selectedDiscipline, setSelectedDiscipline] = useState<Discipline | null>(null)
   const [uploadedFileName, setUploadedFileName] = useState<string>("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [uploadSuccess, setUploadSuccess] = useState<{
-    success: boolean
-    message: string
-    addedCount: number
-    duplicateCount: number
-  } | null>(null)
+  const [fileUploadResult, setFileUploadResult] = useState<FileProcessingResult | null>(null)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [isProcessingFile, setIsProcessingFile] = useState(false)
 
   const disciplines = Object.keys(disciplineMap) as Discipline[]
   const { toast } = useToast()
+
+  // Length limits for validation
+  const MAX_EN_LENGTH = 500
+  const MAX_KR_LENGTH = 500
+  const MAX_DESCRIPTION_LENGTH = 1000
 
   /* ───────────────────────── individual term ──────────────────── */
   const handleAddIndividualTerm = async (e: React.FormEvent) => {
@@ -49,6 +59,34 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
     }
 
     if (enTerm && krTerm && selectedDiscipline) {
+      // Check length limits
+      if (enTerm.length > MAX_EN_LENGTH) {
+        toast({
+          title: "입력 오류",
+          description: `영어 용어가 너무 깁니다. (최대 ${MAX_EN_LENGTH}자)`,
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (krTerm.length > MAX_KR_LENGTH) {
+        toast({
+          title: "입력 오류",
+          description: `한국어 용어가 너무 깁니다. (최대 ${MAX_KR_LENGTH}자)`,
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (description.length > MAX_DESCRIPTION_LENGTH) {
+        toast({
+          title: "입력 오류",
+          description: `설명이 너무 깁니다. (최대 ${MAX_DESCRIPTION_LENGTH}자)`,
+          variant: "destructive",
+        })
+        return
+      }
+
       const lowerCaseEn = enTerm.toLowerCase()
       const lowerCaseKr = krTerm.toLowerCase()
 
@@ -80,20 +118,17 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
         setDescription("")
         setSelectedDiscipline(null)
 
-        // Show success state
-        setUploadSuccess({
-          success: true,
-          message: "용어가 성공적으로 업로드되었습니다. 관리자 승인 후 용어집에 추가됩니다.",
-          addedCount: 1,
-          duplicateCount: 0,
+        // Show success toast only (no form message for individual terms)
+        toast({
+          title: "용어 업로드 완료",
+          description: "용어가 성공적으로 업로드되었습니다. 관리자 승인 후 용어집에 추가됩니다.",
         })
       } catch (error) {
         console.error("Error adding term:", error)
-        setUploadSuccess({
-          success: false,
-          message: "용어 추가 중 오류가 발생했습니다.",
-          addedCount: 0,
-          duplicateCount: 0,
+        toast({
+          title: "업로드 오류",
+          description: "용어 추가 중 오류가 발생했습니다.",
+          variant: "destructive",
         })
       } finally {
         setIsSubmitting(false)
@@ -113,6 +148,8 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
     if (file) {
       setUploadedFile(file)
       setUploadedFileName(file.name)
+      // Clear any previous file upload result
+      setFileUploadResult(null)
       // Reset file input
       if (event.target) {
         event.target.value = ""
@@ -120,90 +157,154 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
     }
   }
 
+  const validateTerm = (en: string, kr: string, description: string, lineNumber: number) => {
+    const issues: string[] = []
+
+    if (en.length > MAX_EN_LENGTH) {
+      issues.push(`라인 ${lineNumber}: 영어 용어 길이 초과 (${en.length}/${MAX_EN_LENGTH}자)`)
+    }
+
+    if (kr.length > MAX_KR_LENGTH) {
+      issues.push(`라인 ${lineNumber}: 한국어 용어 길이 초과 (${kr.length}/${MAX_KR_LENGTH}자)`)
+    }
+
+    if (description.length > MAX_DESCRIPTION_LENGTH) {
+      issues.push(`라인 ${lineNumber}: 설명 길이 초과 (${description.length}/${MAX_DESCRIPTION_LENGTH}자)`)
+    }
+
+    return issues
+  }
+
   const handleFileUpload = async () => {
     if (!uploadedFile) return
 
     setIsProcessingFile(true)
-    if (uploadSuccess && !uploadSuccess.success) {
-      setUploadSuccess(null)
-    }
+    setFileUploadResult(null) // Clear previous messages
 
     try {
       const text = await uploadedFile.text()
       const lines = text.split("\n").filter((line) => line.trim() !== "" && !line.includes("==="))
 
       const terms: Omit<GlossaryTerm, "id" | "abbreviation" | "status" | "created_at" | "created_by">[] = []
+      const skippedReasons: string[] = []
+      let totalProcessed = 0
 
-      for (const line of lines) {
-        const parts = line.split("/").map((part) => part.trim())
-        if (parts.length >= 3) {
-          const [disciplineAbbr, en, kr, description = ""] = parts
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i]
+        const lineNumber = i + 1
+        totalProcessed++
 
-          const discipline = Object.keys(disciplineMap).find(
-            (key) => disciplineMap[key as Discipline].abbreviation === disciplineAbbr.trim(),
-          ) as Discipline | undefined
+        console.log(`Processing line ${lineNumber}: ${line}`) // Debug log
 
-          if (discipline && en.trim() && kr.trim()) {
-            terms.push({
-              en: en.trim(),
-              kr: kr.trim(),
-              description: description.trim(),
-              discipline,
-            })
-          }
+        const parts = line.split(";").map((part) => part.trim())
+
+        if (parts.length < 3) {
+          skippedReasons.push(`라인 ${lineNumber}: 형식 오류 (최소 3개 부분 필요: 공종;영어;한국어)`)
+          continue
         }
+
+        const [disciplineAbbr, en, kr, description = ""] = parts
+
+        // Check if discipline exists
+        const discipline = Object.keys(disciplineMap).find(
+          (key) => disciplineMap[key as Discipline].abbreviation === disciplineAbbr.trim(),
+        ) as Discipline | undefined
+
+        if (!discipline) {
+          skippedReasons.push(`라인 ${lineNumber}: 알 수 없는 공종 약어 "${disciplineAbbr}"`)
+          continue
+        }
+
+        if (!en.trim()) {
+          skippedReasons.push(`라인 ${lineNumber}: 영어 용어가 비어있음`)
+          continue
+        }
+
+        if (!kr.trim()) {
+          skippedReasons.push(`라인 ${lineNumber}: 한국어 용어가 비어있음`)
+          continue
+        }
+
+        // Validate term lengths
+        const validationIssues = validateTerm(en.trim(), kr.trim(), description.trim(), lineNumber)
+        if (validationIssues.length > 0) {
+          skippedReasons.push(...validationIssues)
+          continue
+        }
+
+        // Check for duplicates in existing glossary
+        const isDuplicate = existingGlossary.some(
+          (existingTerm) =>
+            existingTerm.en.toLowerCase() === en.trim().toLowerCase() &&
+            existingTerm.kr.toLowerCase() === kr.trim().toLowerCase(),
+        )
+
+        if (isDuplicate) {
+          skippedReasons.push(`라인 ${lineNumber}: 중복 용어 "${en.trim()}" ; "${kr.trim()}"`)
+          continue
+        }
+
+        // If we get here, the term is valid
+        terms.push({
+          en: en.trim(),
+          kr: kr.trim(),
+          description: description.trim(),
+          discipline,
+        })
+
+        console.log(`Added term: ${en.trim()} ; ${kr.trim()}`) // Debug log
       }
+
+      console.log(`Total valid terms to upload: ${terms.length}`) // Debug log
 
       if (terms.length > 0) {
         let addedCount = 0
-        let duplicateCount = 0
 
         for (const term of terms) {
-          const isDuplicate = existingGlossary.some(
-            (existingTerm) =>
-              existingTerm.en.toLowerCase() === term.en.toLowerCase() &&
-              existingTerm.kr.toLowerCase() === term.kr.toLowerCase(),
-          )
-
-          if (isDuplicate) {
-            duplicateCount++
-            continue
-          }
-
           try {
             await onAddTerm(term)
             addedCount++
           } catch (error) {
             console.error(`Failed to add term ${term.en}:`, error)
+            skippedReasons.push(`업로드 실패: "${term.en}" ; "${term.kr}" - ${error}`)
           }
         }
 
-        // Set upload success state
-        setUploadSuccess({
+        // Set file upload result state (shown at top of popup)
+        setFileUploadResult({
           success: true,
-          message: `${addedCount}개 용어가 성공적으로 업로드되었습니다.`,
+          message: `파일 처리 완료: ${addedCount}개 용어가 성공적으로 업로드되었습니다.`,
           addedCount,
-          duplicateCount,
+          duplicateCount: 0, // We count duplicates in skipped reasons now
+          skippedCount: totalProcessed - terms.length,
+          skippedReasons,
+          totalProcessed,
         })
 
         // Clear the uploaded file
         setUploadedFile(null)
         setUploadedFileName("")
       } else {
-        setUploadSuccess({
+        setFileUploadResult({
           success: false,
           message: "유효한 용어를 찾을 수 없습니다.",
           addedCount: 0,
           duplicateCount: 0,
+          skippedCount: totalProcessed,
+          skippedReasons,
+          totalProcessed,
         })
       }
     } catch (error) {
       console.error("File processing error:", error)
-      setUploadSuccess({
+      setFileUploadResult({
         success: false,
         message: "파일을 처리할 수 없습니다.",
         addedCount: 0,
         duplicateCount: 0,
+        skippedCount: 0,
+        skippedReasons: [`파일 처리 오류: ${error}`],
+        totalProcessed: 0,
       })
     } finally {
       setIsProcessingFile(false)
@@ -214,12 +315,20 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
     const templateContent = [
       "=== SAMOO 용어집 템플릿 ===",
       "",
-      "Gen / Project Management / 프로젝트 관리 / 프로젝트 전반 관리",
-      "Arch / Building Design / 건물 설계 / 건축물 설계",
-      "Elec / Power System / 전력 시스템 / 전력 공급 시스템",
-      "Piping / Pipeline / 배관 / 유체 운반 관로",
+      "Gen;Project Management;프로젝트 관리;프로젝트 전반 관리",
+      "Arch;Building Design;건물 설계;건축물 설계",
+      "Elec;Power System;전력 시스템;전력 공급 시스템",
+      "Piping;Pipeline;배관;유체 운반 관로",
+      "Civil;Foundation;기초;건물 하중 지지 구조물",
+      "I&C;Sensor;센서;물리량 감지 장치",
+      "FP;Fire Alarm;화재 경보;화재 감지 및 경보 시스템",
+      "HVAC;Ventilation;환기;실내외 공기 교환",
+      "Struct;Beam;보;수평 하중 지지 구조 부재",
+      "Cell;Battery Cell;배터리 셀;전기 에너지 저장 단위",
       "",
-      "=== 형식: 공종약어 / 영어 / 한국어 / 설명 ===",
+      "=== 형식: 공종약어;영어;한국어;설명 ===",
+      "=== 길이 제한: 영어/한국어 최대 500자, 설명 최대 1000자 ===",
+      "=== 구분자: 세미콜론(;) 사용 ===",
     ].join("\n")
 
     const blob = new Blob([templateContent], { type: "text/plain;charset=utf-8" })
@@ -266,26 +375,47 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
         <h3 className="text-lg font-semibold text-samoo-blue">용어 추가</h3>
       </div>
 
-      {/* Upload Success Message */}
-      {uploadSuccess && (
+      {/* File Upload Result Message - Only shown at top for template uploads */}
+      {fileUploadResult && (
         <div
           className={cn(
             "mb-4 p-3 rounded-lg border",
-            uploadSuccess.success
+            fileUploadResult.success
               ? "bg-green-50 border-green-200 text-green-800"
               : "bg-red-50 border-red-200 text-red-800",
           )}
         >
           <div className="flex items-center gap-2">
-            {uploadSuccess.success && <CheckCircle className="w-4 h-4 text-green-600" />}
+            {fileUploadResult.success ? (
+              <CheckCircle className="w-4 h-4 text-green-600" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-red-600" />
+            )}
             <div className="flex-1">
-              <p className="text-sm font-medium">{uploadSuccess.message}</p>
-              {uploadSuccess.success && (
-                <div className="text-xs mt-1 space-y-1">
-                  <p>• 추가된 용어: {uploadSuccess.addedCount}개</p>
-                  {uploadSuccess.duplicateCount > 0 && <p>• 중복으로 건너뛴 용어: {uploadSuccess.duplicateCount}개</p>}
+              <p className="text-sm font-medium">{fileUploadResult.message}</p>
+              <div className="text-xs mt-2 space-y-1">
+                <p>• 처리된 라인: {fileUploadResult.totalProcessed}개</p>
+                <p>• 추가된 용어: {fileUploadResult.addedCount}개</p>
+                {fileUploadResult.skippedCount > 0 && <p>• 건너뛴 용어: {fileUploadResult.skippedCount}개</p>}
+                {fileUploadResult.success && fileUploadResult.addedCount > 0 && (
                   <p className="text-green-700 font-medium">✅ 관리자 승인 후 용어집에 표시됩니다.</p>
-                </div>
+                )}
+              </div>
+
+              {/* Show detailed skip reasons */}
+              {fileUploadResult.skippedReasons.length > 0 && (
+                <details className="mt-2">
+                  <summary className="text-xs font-medium cursor-pointer hover:underline">
+                    건너뛴 이유 보기 ({fileUploadResult.skippedReasons.length}개)
+                  </summary>
+                  <div className="mt-1 max-h-32 overflow-y-auto bg-white/50 rounded p-2">
+                    {fileUploadResult.skippedReasons.map((reason, index) => (
+                      <p key={index} className="text-xs text-gray-700 mb-1">
+                        • {reason}
+                      </p>
+                    ))}
+                  </div>
+                </details>
               )}
             </div>
           </div>
@@ -298,28 +428,36 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
         <div className="grid grid-cols-2 gap-2">
           <div>
             <Label htmlFor="en-term" className="text-xs font-medium text-samoo-gray mb-1 block">
-              English
+              English ({enTerm.length}/{MAX_EN_LENGTH})
             </Label>
             <Input
               id="en-term"
               value={enTerm}
               onChange={(e) => setEnTerm(e.target.value)}
-              className="h-8 text-sm border-samoo-gray-medium focus:ring-samoo-blue focus:border-samoo-blue"
+              className={cn(
+                "h-8 text-sm border-samoo-gray-medium focus:ring-samoo-blue focus:border-samoo-blue",
+                enTerm.length > MAX_EN_LENGTH && "border-red-500 focus:border-red-500",
+              )}
               placeholder="영어 용어"
               disabled={isSubmitting || isProcessingFile}
+              maxLength={MAX_EN_LENGTH + 50} // Allow some overflow for warning
             />
           </div>
           <div>
             <Label htmlFor="kr-term" className="text-xs font-medium text-samoo-gray mb-1 block">
-              한국어
+              한국어 ({krTerm.length}/{MAX_KR_LENGTH})
             </Label>
             <Input
               id="kr-term"
               value={krTerm}
               onChange={(e) => setKrTerm(e.target.value)}
-              className="h-8 text-sm border-samoo-gray-medium focus:ring-samoo-blue focus:border-samoo-blue"
+              className={cn(
+                "h-8 text-sm border-samoo-gray-medium focus:ring-samoo-blue focus:border-samoo-blue",
+                krTerm.length > MAX_KR_LENGTH && "border-red-500 focus:border-red-500",
+              )}
               placeholder="한국어 용어"
               disabled={isSubmitting || isProcessingFile}
+              maxLength={MAX_KR_LENGTH + 50} // Allow some overflow for warning
             />
           </div>
         </div>
@@ -327,15 +465,19 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
         {/* Description */}
         <div>
           <Label htmlFor="description" className="text-xs font-medium text-samoo-gray mb-1 block">
-            설명 (선택사항)
+            설명 (선택사항) ({description.length}/{MAX_DESCRIPTION_LENGTH})
           </Label>
           <Input
             id="description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="용어 설명을 입력하세요"
-            className="h-8 text-sm border-samoo-gray-medium focus:ring-samoo-blue focus:border-samoo-blue"
+            className={cn(
+              "h-8 text-sm border-samoo-gray-medium focus:ring-samoo-blue focus:border-samoo-blue",
+              description.length > MAX_DESCRIPTION_LENGTH && "border-red-500 focus:border-red-500",
+            )}
             disabled={isSubmitting || isProcessingFile}
+            maxLength={MAX_DESCRIPTION_LENGTH + 50} // Allow some overflow for warning
           />
         </div>
 
@@ -461,6 +603,12 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
         <div className="bg-blue-50 border border-blue-200 rounded p-2 mt-2">
           <p className="text-xs text-blue-800">
             💡 <strong>템플릿을 다운로드</strong>하여 형식에 맞게 작성한 후 업로드하세요.
+          </p>
+          <p className="text-xs text-blue-700 mt-1">
+            📏 <strong>길이 제한:</strong> 영어/한국어 최대 500자, 설명 최대 1000자
+          </p>
+          <p className="text-xs text-blue-700 mt-1">
+            🔗 <strong>구분자:</strong> 세미콜론(;)을 사용하여 구분
           </p>
         </div>
       </div>

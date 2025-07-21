@@ -70,13 +70,9 @@ export default function Home() {
 
     const result = await addGlossaryTerm(formattedTerm)
 
-    // Show success toast notification
-    if (result.success) {
-      toast({
-        title: "용어 업로드 완료",
-        description: "용어가 성공적으로 업로드되었습니다. 관리자 승인 후 용어집에 추가됩니다.",
-      })
-    } else {
+    // Only show toast for individual terms (not for file uploads)
+    // The form component will handle showing success messages appropriately
+    if (!result.success) {
       toast({
         title: "업로드 오류",
         description: result.message,
@@ -120,7 +116,7 @@ export default function Home() {
       }
     }
 
-    // Remove all toast notifications - let the form handle the success message
+    // Return counts for the form to handle success messages
     return { addedCount, duplicateCount }
   }
 
