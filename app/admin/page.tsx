@@ -20,18 +20,20 @@ import { DuplicateComparisonSection } from "@/components/duplicate-comparison-se
 import { DebugInfo } from "@/components/debug-info"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { List, Table, Edit } from "lucide-react"
+import { List, Table, Clock, Edit } from "lucide-react"
 import type { GlossaryTerm } from "@/lib/data"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import { EditTermForm } from "@/components/edit-term-form"
+
+type ViewMode = "discipline" | "date" | "all"
 
 export default function AdminPage() {
   const [pendingTerms, setPendingTerms] = useState<GlossaryTerm[]>([])
   const [allTerms, setAllTerms] = useState<GlossaryTerm[]>([])
   const [hasDuplicates, setHasDuplicates] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [currentView, setCurrentView] = useState<"discipline" | "all">("all")
+  const [viewMode, setViewMode] = useState<ViewMode>("discipline")
   const [editingPendingTerm, setEditingPendingTerm] = useState<GlossaryTerm | null>(null)
   const { toast } = useToast()
 
@@ -39,8 +41,13 @@ export default function AdminPage() {
     setIsLoading(true)
     try {
       const [pending, all] = await Promise.all([getGlossaryTerms("pending"), getGlossaryTerms(undefined, true)])
-      setPendingTerms(pending)
-      setAllTerms(all)
+
+      // Apply sorting based on viewMode
+      const sortedPending = sortTermsByMode(pending, viewMode)
+      const sortedAll = sortTermsByMode(all, viewMode)
+
+      setPendingTerms(sortedPending)
+      setAllTerms(sortedAll)
     } catch (error) {
       console.error("Error fetching data:", error)
     } finally {
@@ -48,9 +55,31 @@ export default function AdminPage() {
     }
   }
 
+  const sortTermsByMode = (terms: GlossaryTerm[], mode: ViewMode): GlossaryTerm[] => {
+    switch (mode) {
+      case "date":
+        return terms.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      case "discipline":
+      case "all":
+      default:
+        return terms.sort((a, b) => {
+          const disciplineAIndex = disciplines.indexOf(a.discipline)
+          const disciplineBIndex = disciplines.indexOf(b.discipline)
+          if (disciplineAIndex !== disciplineBIndex) {
+            return disciplineAIndex - disciplineBIndex
+          }
+          return a.en.localeCompare(b.en)
+        })
+    }
+  }
+
   useEffect(() => {
     fetchData()
   }, [])
+
+  useEffect(() => {
+    fetchData()
+  }, [viewMode])
 
   const handleDuplicatesChange = (duplicatesExist: boolean) => {
     setHasDuplicates(duplicatesExist)
@@ -114,6 +143,7 @@ export default function AdminPage() {
               <th className="p-4 text-sm font-semibold text-samoo-gray">English</th>
               <th className="p-4 text-sm font-semibold text-samoo-gray">한국어</th>
               <th className="p-4 text-sm font-semibold text-samoo-gray">설명</th>
+              {viewMode === "date" && <th className="p-4 text-sm font-semibold text-samoo-gray">등록일</th>}
               <th className="p-4 text-sm font-semibold text-samoo-gray text-center w-24">작업</th>
             </tr>
           </thead>
@@ -137,6 +167,15 @@ export default function AdminPage() {
                 <td className="p-4 text-sm text-samoo-gray-medium max-w-xs truncate" title={term.description}>
                   {term.description || "설명 없음"}
                 </td>
+                {viewMode === "date" && (
+                  <td className="p-4 text-xs text-samoo-gray-medium">
+                    {new Date(term.created_at).toLocaleDateString("ko-KR", {
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                    })}
+                  </td>
+                )}
                 <td className="p-4 text-center">
                   <div className="flex gap-1 justify-center">
                     <Dialog>
@@ -257,31 +296,39 @@ export default function AdminPage() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
             <h2 className="text-2xl font-semibold text-samoo-gray">전체 용어 관리 ({allTerms.length}개)</h2>
-            {/* View Toggle moved here */}
+            {/* Three-way Toggle */}
             <div className="flex rounded-md overflow-hidden border border-samoo-blue">
               <Button
-                onClick={() => setCurrentView("discipline")}
+                onClick={() => setViewMode("discipline")}
                 className={cn(
                   "px-4 py-2 text-sm font-medium transition-colors",
-                  currentView === "discipline"
+                  viewMode === "discipline"
                     ? "bg-samoo-blue text-white"
                     : "bg-white text-samoo-blue hover:bg-samoo-blue/10",
                 )}
               >
                 <List className="w-4 h-4 mr-2" />
-                공종별 보기
+                공종별
               </Button>
               <Button
-                onClick={() => setCurrentView("all")}
+                onClick={() => setViewMode("date")}
                 className={cn(
                   "px-4 py-2 text-sm font-medium transition-colors",
-                  currentView === "all"
-                    ? "bg-samoo-blue text-white"
-                    : "bg-white text-samoo-blue hover:bg-samoo-blue/10",
+                  viewMode === "date" ? "bg-samoo-blue text-white" : "bg-white text-samoo-blue hover:bg-samoo-blue/10",
+                )}
+              >
+                <Clock className="w-4 h-4 mr-2" />
+                최신순
+              </Button>
+              <Button
+                onClick={() => setViewMode("all")}
+                className={cn(
+                  "px-4 py-2 text-sm font-medium transition-colors",
+                  viewMode === "all" ? "bg-samoo-blue text-white" : "bg-white text-samoo-blue hover:bg-samoo-blue/10",
                 )}
               >
                 <Table className="w-4 h-4 mr-2" />
-                전체 보기
+                전체
               </Button>
             </div>
           </div>
@@ -294,15 +341,7 @@ export default function AdminPage() {
           </p>
         </div>
 
-        {currentView === "all" ? (
-          <AdminTermsTable
-            terms={allTerms}
-            onDeleteTerm={deleteGlossaryTerm}
-            onDeleteMultiple={deleteMultipleTerms}
-            onDeleteAll={deleteAllTerms}
-            onUpdateTerm={updateGlossaryTerm}
-          />
-        ) : (
+        {viewMode === "discipline" ? (
           <div className="space-y-8">
             {disciplines.map((discipline) => {
               const termsInDiscipline = allTerms.filter((term) => term.discipline === discipline)
@@ -331,7 +370,6 @@ export default function AdminPage() {
                                 onChange={(e) => {
                                   const isChecked = e.target.checked
                                   termsInDiscipline.forEach((term) => {
-                                    // This would need to be connected to selection logic
                                     console.log(`${isChecked ? "Select" : "Deselect"} ${term.id}`)
                                   })
                                 }}
@@ -398,7 +436,7 @@ export default function AdminPage() {
                                       if (confirm(`"${term.en}" 용어를 삭제하시겠습니까?`)) {
                                         deleteGlossaryTerm(term.id).then((result) => {
                                           if (result.success) {
-                                            fetchData() // Refresh data
+                                            fetchData()
                                           }
                                         })
                                       }
@@ -423,7 +461,6 @@ export default function AdminPage() {
                       </table>
                     </div>
 
-                    {/* Footer for each discipline table */}
                     <div className="bg-gray-50 border-t border-samoo-gray-light px-4 py-2">
                       <div className="flex justify-between items-center text-xs text-samoo-gray-medium">
                         <span>
@@ -436,7 +473,7 @@ export default function AdminPage() {
                                 const disciplineTermIds = termsInDiscipline.map((t) => t.id)
                                 deleteMultipleTerms(disciplineTermIds).then((result) => {
                                   if (result.success) {
-                                    fetchData() // Refresh data
+                                    fetchData()
                                   }
                                 })
                               }
@@ -453,6 +490,14 @@ export default function AdminPage() {
               )
             })}
           </div>
+        ) : (
+          <AdminTermsTable
+            terms={allTerms}
+            onDeleteTerm={deleteGlossaryTerm}
+            onDeleteMultiple={deleteMultipleTerms}
+            onDeleteAll={deleteAllTerms}
+            onUpdateTerm={updateGlossaryTerm}
+          />
         )}
       </section>
     </div>

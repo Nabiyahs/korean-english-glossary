@@ -69,17 +69,7 @@ export default function Home() {
     }
 
     const result = await addGlossaryTerm(formattedTerm)
-
-    // Only show toast for individual terms (not for file uploads)
-    // The form component will handle showing success messages appropriately
-    if (!result.success) {
-      toast({
-        title: "업로드 오류",
-        description: result.message,
-        variant: "destructive",
-      })
-    }
-
+    // Don't close the modal automatically - let user close it manually
     return result
   }
 
@@ -116,7 +106,7 @@ export default function Home() {
       }
     }
 
-    // Return counts for the form to handle success messages
+    // Remove all toast notifications - let the form handle the success message
     return { addedCount, duplicateCount }
   }
 

@@ -99,22 +99,8 @@ export function UserManualContent() {
             <div className="flex items-start gap-2 text-sm text-samoo-gray">
               <div className="w-1.5 h-1.5 bg-samoo-blue rounded-full mt-1.5 flex-shrink-0" />
               <span>
-                <span className="font-medium">텍스트 파일 업로드:</span> 템플릿 파일을 다운로드하여
-                '공종;영어;한국어;설명' 형식으로 작성 후 업로드하면 여러 용어를 한 번에 추가할 수 있습니다.
-              </span>
-            </div>
-            <div className="flex items-start gap-2 text-sm text-samoo-gray">
-              <div className="w-1.5 h-1.5 bg-samoo-blue rounded-full mt-1.5 flex-shrink-0" />
-              <span>
-                <span className="font-medium">파일 형식:</span> 각 라인은 세미콜론(;)으로 구분하여 작성합니다. 예:
-                Gen;Project Management;프로젝트 관리;프로젝트 전반 관리
-              </span>
-            </div>
-            <div className="flex items-start gap-2 text-sm text-samoo-gray">
-              <div className="w-1.5 h-1.5 bg-samoo-blue rounded-full mt-1.5 flex-shrink-0" />
-              <span>
-                <span className="font-medium">길이 제한:</span> 영어/한국어 용어는 최대 500자, 설명은 최대 1000자까지
-                입력 가능합니다.
+                <span className="font-medium">텍스트 파일 업로드:</span> 템플릿 파일을 다운로드하여 '공종/EN/KR/설명'
+                형식으로 작성 후 업로드하면 여러 용어를 한 번에 추가할 수 있습니다.
               </span>
             </div>
           </div>
