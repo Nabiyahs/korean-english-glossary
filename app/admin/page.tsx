@@ -17,7 +17,6 @@ import { AdminActionButtons } from "@/components/admin-action-buttons"
 import { AdminBulkActions } from "@/components/admin-bulk-actions"
 import { AdminTermsTable } from "@/components/admin-terms-table"
 import { DuplicateComparisonSection } from "@/components/duplicate-comparison-section"
-import { EnhancedDebugPanel } from "@/components/enhanced-debug-panel"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { List, Table, Clock, Edit } from "lucide-react"
@@ -241,7 +240,6 @@ export default function AdminPage() {
       </div>
 
       {/* Enhanced Debug Panel - Now shows the issue */}
-      <EnhancedDebugPanel />
 
       {/* Duplicate Comparison Section - Now ultra compact */}
       <DuplicateComparisonSection onDuplicatesChange={handleDuplicatesChange} />

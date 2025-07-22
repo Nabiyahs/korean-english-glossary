@@ -85,7 +85,10 @@ export async function getGlossaryTerms(statusFilter?: "pending" | "approved", fo
     }
     // If forAdmin is true, no status filter is applied, fetching all terms.
 
-    const { data, error } = await query.order("discipline", { ascending: true }).order("en", { ascending: true })
+    const { data, error } = await query
+      .order("discipline", { ascending: true })
+      .order("en", { ascending: true })
+      .limit(5000)
 
     if (error) {
       console.error("Error fetching glossary terms:", error)
@@ -145,9 +148,6 @@ export async function addGlossaryTerm(
   term: Omit<GlossaryTerm, "id" | "abbreviation" | "status" | "created_at" | "created_by">,
 ) {
   const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
 
   // Format the term data
   const formattedTerm = {
@@ -195,7 +195,7 @@ export async function addGlossaryTerm(
       discipline: formattedTerm.discipline,
       abbreviation: abbreviation,
       status: "pending",
-      created_by: user?.id || null,
+      created_by: null, // No authentication required
     })
     .select()
 
@@ -242,7 +242,7 @@ export async function updateGlossaryTerm(
 export async function deleteGlossaryTerm(id: string) {
   const supabase = createClient()
 
-  // Remove authentication check - anyone can delete
+  // No authentication check needed - anyone can delete via /admin
   const { error } = await supabase.from("glossary_terms").delete().eq("id", id)
 
   if (error) {
@@ -389,7 +389,7 @@ export async function approveGlossaryTerm(id: string) {
 export async function rejectGlossaryTerm(id: string) {
   const supabase = createClient()
 
-  // Remove authentication check - anyone can reject/delete
+  // No authentication check needed - anyone can reject/delete via /admin
   const { error } = await supabase.from("glossary_terms").delete().eq("id", id)
 
   if (error) {
