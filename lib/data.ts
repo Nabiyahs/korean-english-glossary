@@ -1,5 +1,5 @@
 export type Discipline =
-  | "프로젝트 일반 용어"
+  | "General"
   | "Architecture"
   | "Electrical"
   | "Piping"
@@ -17,16 +17,16 @@ export interface GlossaryTerm {
   description: string
   discipline: Discipline
   abbreviation: string
-  status: "pending" | "approved" // Added status
-  created_at: string // Added created_at
-  created_by: string // Added created_by
+  status: "pending" | "approved"
+  created_at: string
+  created_by: string
 }
 
 export const disciplineMap: Record<
   Discipline,
   { abbreviation: string; color: string; koreanName: string; englishName: string }
 > = {
-  "프로젝트 일반 용어": {
+  General: {
     abbreviation: "Gen",
     color: "bg-discipline-general",
     koreanName: "일반",
@@ -88,9 +88,18 @@ export const disciplineMap: Record<
   },
 }
 
+// Helper function to find discipline by abbreviation (for file uploads)
+export function getDisciplineByAbbreviation(abbreviation: string): Discipline | null {
+  const discipline = Object.keys(disciplineMap).find(
+    (key) => disciplineMap[key as Discipline].abbreviation.toLowerCase() === abbreviation.toLowerCase(),
+  ) as Discipline | undefined
+
+  return discipline || null
+}
+
 // A fixed order used for consistent sorting throughout the app
 export const disciplineOrder: Discipline[] = [
-  "프로젝트 일반 용어",
+  "General",
   "Architecture",
   "Electrical",
   "Piping",
@@ -102,5 +111,4 @@ export const disciplineOrder: Discipline[] = [
   "Cell",
 ]
 
-// initialGlossary is no longer needed here as data comes from Supabase
 export const initialGlossary: GlossaryTerm[] = []

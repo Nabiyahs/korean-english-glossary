@@ -1,7 +1,7 @@
 -- Seed initial glossary data (all as 'approved' by default)
 INSERT INTO public.glossary_terms (en, kr, description, discipline, abbreviation, status) VALUES
-('Project Kick-off', '프로젝트 착수', '프로젝트 시작 회의', '프로젝트 일반 용어', 'Gen', 'approved'),
-('Scope of Work', '업무 범위', '업무 범위 정의', '프로젝트 일반 용어', 'Gen', 'approved'),
+('Project Kick-off', '프로젝트 착수', '프로젝트 시작 회의', 'General', 'Gen', 'approved'),
+('Scope of Work', '업무 범위', '업무 범위 정의', 'General', 'Gen', 'approved'),
 ('Floor Plan', '평면도', '건물 층별 배치 도면', 'Architecture', 'Arch', 'approved'),
 ('Facade', '외관', '건물 외벽 또는 정면부', 'Architecture', 'Arch', 'approved'),
 ('Circuit Breaker', '회로 차단기', '회로 보호 장치', 'Electrical', 'Elec', 'approved'),

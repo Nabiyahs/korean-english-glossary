@@ -5,7 +5,7 @@ import type React from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { type Discipline, type GlossaryTerm, disciplineMap } from "@/lib/data"
+import { type Discipline, type GlossaryTerm, disciplineMap, getDisciplineByAbbreviation } from "@/lib/data"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { Download, Upload, CheckCircle, AlertCircle } from "lucide-react"
@@ -68,11 +68,12 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
 
       setIsSubmitting(true)
       try {
+        // ✅ FIX: Use English discipline name directly
         await onAddTerm({
           en: enTerm,
           kr: krTerm,
           description: description.trim(),
-          discipline: selectedDiscipline,
+          discipline: selectedDiscipline, // This is already English like "General"
         })
 
         // Clear form immediately
@@ -164,14 +165,9 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
 
         const [disciplineAbbr, en, kr, description = ""] = parts
 
-        // Find discipline by abbreviation - Add more detailed logging
+        // ✅ FIX: Use the helper function to find discipline by abbreviation
         console.log(`Looking for discipline with abbreviation: "${disciplineAbbr}"`)
-        const discipline = Object.keys(disciplineMap).find((key) => {
-          const abbrev = disciplineMap[key as Discipline].abbreviation.toLowerCase()
-          const inputAbbrev = disciplineAbbr.trim().toLowerCase()
-          console.log(`Comparing "${abbrev}" with "${inputAbbrev}"`)
-          return abbrev === inputAbbrev
-        }) as Discipline | undefined
+        const discipline = getDisciplineByAbbreviation(disciplineAbbr.trim())
 
         console.log(`Found discipline: ${discipline}`) // Debug log
 
@@ -193,7 +189,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
           en: en.trim(),
           kr: kr.trim(),
           description: description.trim(),
-          discipline,
+          discipline, // This is now the English discipline name like "General"
         }
 
         console.log(`Adding term:`, newTerm) // Debug log
@@ -293,16 +289,16 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
       "# 5. 세미콜론(;)으로 구분합니다",
       "",
       "# 🏷️ 공종 약어 목록:",
-      "# Gen = 프로젝트 일반 용어",
-      "# Arch = Architecture (건축)",
-      "# Elec = Electrical (전기)",
-      "# Piping = Piping (배관)",
-      "# Civil = Civil (토목)",
-      "# I&C = Instrument & Control (제어)",
-      "# FP = Fire Protection (소방)",
-      "# HVAC = HVAC (공조)",
-      "# Struct = Structure (구조)",
-      "# Cell = Cell (배터리)",
+      "# Gen = 일반 (General)",
+      "# Arch = 건축 (Architecture)",
+      "# Elec = 전기 (Electrical)",
+      "# Piping = 배관 (Piping)",
+      "# Civil = 토목 (Civil)",
+      "# I&C = 제어 (Instrument & Control)",
+      "# FP = 소방 (Fire Protection)",
+      "# HVAC = 공조 (HVAC)",
+      "# Struct = 구조 (Structure)",
+      "# Cell = 배터리 (Cell)",
       "",
       "# ✅ 올바른 형식 예시:",
       "# Gen;Project Management;프로젝트 관리;프로젝트 전반적인 관리 업무",
