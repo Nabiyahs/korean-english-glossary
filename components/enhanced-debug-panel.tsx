@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { getGlossaryTerms, approveGlossaryTerm, debugDatabaseState } from "@/app/actions"
+import { getGlossaryTerms, approveGlossaryTerm, debugGeneralTermsIssue } from "@/app/actions"
 import { Bug, Play, CheckCircle, XCircle } from "lucide-react"
 
 export function EnhancedDebugPanel() {
@@ -16,84 +16,133 @@ export function EnhancedDebugPanel() {
     setTestResults([])
     const results: any[] = []
 
-    // Test 1: Check if we can fetch General terms
+    // Test 1: Check exact discipline name matching
     try {
-      results.push({ test: "Fetching General terms", status: "running", details: "Testing..." })
+      results.push({ test: "Checking discipline name matching", status: "running", details: "Testing..." })
       setTestResults([...results])
 
       const allTerms = await getGlossaryTerms(undefined, true)
-      const generalTerms = allTerms.filter((term) => term.discipline === "프로젝트 일반 용어")
-      const pendingGeneral = generalTerms.filter((term) => term.status === "pending")
+      console.log("DEBUG: All terms fetched:", allTerms.length)
+
+      // Check all unique discipline names
+      const uniqueDisciplines = [...new Set(allTerms.map((term) => term.discipline))]
+      console.log("DEBUG: Unique disciplines found:", uniqueDisciplines)
+
+      // Check for General terms with different possible names
+      const possibleGeneralNames = [
+        "프로젝트 일반 용어",
+        "프로젝트일반용어",
+        "일반용어",
+        "General",
+        "프로젝트 일반용어",
+      ]
+
+      const generalTermsFound = []
+      for (const name of possibleGeneralNames) {
+        const terms = allTerms.filter((term) => term.discipline === name)
+        if (terms.length > 0) {
+          generalTermsFound.push({ name, count: terms.length, terms: terms.slice(0, 3) })
+        }
+      }
 
       results[results.length - 1] = {
-        test: "Fetching General terms",
+        test: "Checking discipline name matching",
         status: "success",
-        details: `Found ${generalTerms.length} total General terms, ${pendingGeneral.length} pending`,
+        details: `Found disciplines: ${uniqueDisciplines.join(", ")}. General terms: ${JSON.stringify(generalTermsFound)}`,
       }
       setTestResults([...results])
 
-      // Test 2: Try to approve one General term if available
-      if (pendingGeneral.length > 0) {
-        const testTerm = pendingGeneral[0]
-        results.push({
-          test: "Approving single General term",
-          status: "running",
-          details: `Testing with: ${testTerm.en}`,
-        })
-        setTestResults([...results])
+      // Test 2: Check pending terms specifically
+      results.push({ test: "Checking pending terms by discipline", status: "running", details: "Testing..." })
+      setTestResults([...results])
 
+      const pendingTerms = allTerms.filter((term) => term.status === "pending")
+      const pendingByDiscipline = pendingTerms.reduce(
+        (acc, term) => {
+          acc[term.discipline] = (acc[term.discipline] || 0) + 1
+          return acc
+        },
+        {} as Record<string, number>,
+      )
+
+      results[results.length - 1] = {
+        test: "Checking pending terms by discipline",
+        status: "success",
+        details: `Pending by discipline: ${JSON.stringify(pendingByDiscipline, null, 2)}`,
+      }
+      setTestResults([...results])
+
+      // Test 3: Try to find and approve a General term with exact matching
+      results.push({ test: "Finding and testing General term approval", status: "running", details: "Testing..." })
+      setTestResults([...results])
+
+      let testTerm = null
+      for (const name of possibleGeneralNames) {
+        const terms = allTerms.filter((term) => term.discipline === name && term.status === "pending")
+        if (terms.length > 0) {
+          testTerm = terms[0]
+          break
+        }
+      }
+
+      if (testTerm) {
+        console.log("DEBUG: Found test term:", testTerm)
         const approveResult = await approveGlossaryTerm(testTerm.id)
         results[results.length - 1] = {
-          test: "Approving single General term",
+          test: "Finding and testing General term approval",
           status: approveResult.success ? "success" : "error",
-          details: approveResult.message,
+          details: `Term: "${testTerm.en}" (${testTerm.discipline}) - ${approveResult.message}`,
           termId: testTerm.id,
           termName: testTerm.en,
+          termDiscipline: testTerm.discipline,
         }
-        setTestResults([...results])
       } else {
-        results.push({
-          test: "Approving single General term",
-          status: "skipped",
-          details: "No pending General terms found",
-        })
-        setTestResults([...results])
+        results[results.length - 1] = {
+          test: "Finding and testing General term approval",
+          status: "error",
+          details: "No pending General terms found with any expected discipline name",
+        }
       }
+      setTestResults([...results])
     } catch (error) {
       results[results.length - 1] = {
-        test: "Fetching General terms",
+        test: "Checking discipline name matching",
         status: "error",
         details: `Error: ${error}`,
       }
       setTestResults([...results])
     }
 
-    // Test 3: Check database state
+    // Test 4: Run comprehensive General terms debug
     try {
-      results.push({ test: "Database state check", status: "running", details: "Checking..." })
+      results.push({ test: "Comprehensive General terms analysis", status: "running", details: "Analyzing..." })
       setTestResults([...results])
 
-      const dbState = await debugDatabaseState()
+      const debugResult = await debugGeneralTermsIssue()
       results[results.length - 1] = {
-        test: "Database state check",
-        status: dbState.success ? "success" : "error",
-        details: `Database accessible: ${dbState.success}, Terms found: ${dbState.terms.length}`,
+        test: "Comprehensive General terms analysis",
+        status: debugResult.success ? "success" : "error",
+        details: debugResult.success
+          ? `Found ${debugResult.data?.allGeneralTerms?.length || 0} total General terms, ${debugResult.data?.pendingGeneral?.length || 0} pending`
+          : debugResult.message,
+        rawData: debugResult.data,
       }
       setTestResults([...results])
     } catch (error) {
       results[results.length - 1] = {
-        test: "Database state check",
+        test: "Comprehensive General terms analysis",
         status: "error",
         details: `Error: ${error}`,
       }
       setTestResults([...results])
     }
 
-    // Test 4: Check browser console for errors
+    // Test 5: Check browser console for errors
     results.push({
       test: "Browser console check",
       status: "info",
-      details: "Check F12 Console for 'DEBUG:' messages and any red errors",
+      details:
+        "Check F12 Console for 'DEBUG:' messages and any red errors. Look for RLS policy errors or permission denied messages.",
     })
     setTestResults([...results])
 
@@ -109,7 +158,7 @@ export function EnhancedDebugPanel() {
           variant="outline"
           className="text-xs text-red-700 border-red-300"
         >
-          <Bug className="w-3 h-3 mr-1" />🚨 General 용어 승인 문제 진단
+          <Bug className="w-3 h-3 mr-1" />🚨 General 용어 승인 문제 진단 (31개 대기 중)
         </Button>
       </Card>
     )
@@ -145,8 +194,19 @@ export function EnhancedDebugPanel() {
                 {result.status === "info" && <div className="w-4 h-4 bg-blue-400 rounded-full" />}
                 <span className="font-medium text-sm">{result.test}</span>
               </div>
-              <p className="text-xs text-gray-700 ml-6">{result.details}</p>
+              <p className="text-xs text-gray-700 ml-6 whitespace-pre-wrap">{result.details}</p>
               {result.termId && <p className="text-xs text-blue-600 ml-6 mt-1">Term ID: {result.termId}</p>}
+              {result.termDiscipline && (
+                <p className="text-xs text-purple-600 ml-6">Discipline: {result.termDiscipline}</p>
+              )}
+              {result.rawData && (
+                <details className="ml-6 mt-2">
+                  <summary className="text-xs text-gray-500 cursor-pointer">Raw Data</summary>
+                  <pre className="text-xs bg-gray-100 p-2 rounded mt-1 overflow-auto max-h-32">
+                    {JSON.stringify(result.rawData, null, 2)}
+                  </pre>
+                </details>
+              )}
             </div>
           ))}
         </div>
@@ -180,16 +240,16 @@ export function EnhancedDebugPanel() {
         <p className="font-medium text-orange-800 mb-2">🎯 일반적인 문제 패턴:</p>
         <ul className="text-orange-700 space-y-1 text-xs">
           <li>
-            <strong>"Content unavailable" 오류:</strong> 브라우저 캐시 문제 또는 네트워크 연결 문제
+            <strong>Discipline 이름 불일치:</strong> "프로젝트 일반 용어" vs "프로젝트일반용어" 등 공백/특수문자 차이
           </li>
           <li>
-            <strong>승인 버튼 클릭 후 변화 없음:</strong> RLS 정책 문제 또는 권한 부족
+            <strong>RLS 정책 문제:</strong> 특정 discipline에 대한 권한 제한
           </li>
           <li>
-            <strong>일부 공종만 승인 안됨:</strong> 데이터 타입 불일치 또는 특정 조건 문제
+            <strong>데이터 타입 문제:</strong> discipline 필드의 인코딩 또는 형식 문제
           </li>
           <li>
-            <strong>콘솔에 빨간 오류:</strong> JavaScript 실행 오류 또는 API 호출 실패
+            <strong>캐싱 문제:</strong> 브라우저나 서버 측 캐싱으로 인한 데이터 불일치
           </li>
         </ul>
       </div>

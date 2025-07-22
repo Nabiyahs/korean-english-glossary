@@ -17,7 +17,7 @@ import { AdminActionButtons } from "@/components/admin-action-buttons"
 import { AdminBulkActions } from "@/components/admin-bulk-actions"
 import { AdminTermsTable } from "@/components/admin-terms-table"
 import { DuplicateComparisonSection } from "@/components/duplicate-comparison-section"
-import { DebugInfo } from "@/components/debug-info"
+import { EnhancedDebugPanel } from "@/components/enhanced-debug-panel"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { List, Table, Clock, Edit } from "lucide-react"
@@ -159,7 +159,7 @@ export default function AdminPage() {
                 <td className="p-4 text-sm text-samoo-gray-medium font-mono">{index + 1}</td>
                 <td className="p-4 text-sm">
                   <span className="px-2 py-1 bg-samoo-blue/10 text-samoo-blue rounded text-xs font-medium">
-                    {disciplineMap[term.discipline].abbreviation}
+                    {disciplineMap[term.discipline]?.abbreviation || term.discipline}
                   </span>
                 </td>
                 <td className="p-4 text-sm font-medium text-samoo-gray">{term.en}</td>
@@ -240,8 +240,8 @@ export default function AdminPage() {
         <p className="text-samoo-gray-medium">이 페이지에서 용어를 승인하거나 삭제할 수 있습니다.</p>
       </div>
 
-      {/* Debug Info - Admin Only */}
-      <DebugInfo />
+      {/* Enhanced Debug Panel - Now shows the issue */}
+      <EnhancedDebugPanel />
 
       {/* Duplicate Comparison Section - Now ultra compact */}
       <DuplicateComparisonSection onDuplicatesChange={handleDuplicatesChange} />

@@ -94,13 +94,31 @@ export async function getGlossaryTerms(statusFilter?: "pending" | "approved", fo
 
     const terms = (data ?? []) as GlossaryTerm[]
 
-    // Debug log for General terms
+    // Enhanced debug logging for General terms
     const generalTerms = terms.filter((term) => term.discipline === "프로젝트 일반 용어")
     console.log("DEBUG: getGlossaryTerms - General terms found:", generalTerms.length)
     console.log(
-      "DEBUG: getGlossaryTerms - General terms:",
-      generalTerms.map((t) => ({ id: t.id, en: t.en, kr: t.kr, status: t.status })),
+      "DEBUG: getGlossaryTerms - General terms sample:",
+      generalTerms.slice(0, 5).map((t) => ({
+        id: t.id,
+        en: t.en,
+        kr: t.kr,
+        status: t.status,
+        discipline: t.discipline,
+        disciplineLength: t.discipline.length,
+        disciplineBytes: new TextEncoder().encode(t.discipline),
+      })),
     )
+
+    // Check for all possible General term variations
+    const possibleGeneralNames = ["프로젝트 일반 용어", "프로젝트일반용어", "일반용어", "General", "프로젝트 일반용어"]
+
+    possibleGeneralNames.forEach((name) => {
+      const matchingTerms = terms.filter((term) => term.discipline === name)
+      if (matchingTerms.length > 0) {
+        console.log(`DEBUG: getGlossaryTerms - Found ${matchingTerms.length} terms with discipline "${name}"`)
+      }
+    })
 
     // Debug log for all terms by discipline
     const termsByDiscipline = terms.reduce(
@@ -111,6 +129,10 @@ export async function getGlossaryTerms(statusFilter?: "pending" | "approved", fo
       {} as Record<string, number>,
     )
     console.log("DEBUG: getGlossaryTerms - Terms by discipline:", termsByDiscipline)
+
+    // Debug log for unique disciplines
+    const uniqueDisciplines = [...new Set(terms.map((term) => term.discipline))]
+    console.log("DEBUG: getGlossaryTerms - Unique disciplines:", uniqueDisciplines)
 
     return terms
   } catch (err: any) {
@@ -301,6 +323,10 @@ export async function approveGlossaryTerm(id: string) {
 
   console.log("DEBUG: approveGlossaryTerm - Found term:", existingTerm)
   console.log("DEBUG: approveGlossaryTerm - Term discipline:", existingTerm.discipline)
+  console.log(
+    "DEBUG: approveGlossaryTerm - Term discipline (hex):",
+    Buffer.from(existingTerm.discipline, "utf8").toString("hex"),
+  )
   console.log("DEBUG: approveGlossaryTerm - Term status:", existingTerm.status)
 
   if (existingTerm.status === "approved") {
@@ -672,27 +698,54 @@ export async function debugGeneralTermsIssue() {
   try {
     console.log("DEBUG: debugGeneralTermsIssue - Starting comprehensive General terms debug")
 
-    // 1. Check all General terms
-    const { data: allGeneralTerms, error: generalError } = await supabase
+    // 1. Check all General terms with multiple possible discipline names
+    const possibleGeneralNames = ["프로젝트 일반 용어", "프로젝트일반용어", "일반용어", "General", "프로젝트 일반용어"]
+
+    const allGeneralTermsResults = []
+    for (const disciplineName of possibleGeneralNames) {
+      const { data: terms, error } = await supabase
+        .from("glossary_terms")
+        .select("*")
+        .eq("discipline", disciplineName)
+        .order("created_at", { ascending: false })
+
+      allGeneralTermsResults.push({
+        disciplineName,
+        count: terms?.length || 0,
+        terms: terms || [],
+        error: error?.message,
+      })
+
+      if (terms && terms.length > 0) {
+        console.log(`DEBUG: debugGeneralTermsIssue - Found ${terms.length} terms with discipline "${disciplineName}"`)
+        console.log(`DEBUG: debugGeneralTermsIssue - Sample terms:`, terms.slice(0, 3))
+      }
+    }
+
+    // 2. Get all unique discipline names to see what's actually in the database
+    const { data: allTerms, error: allTermsError } = await supabase.from("glossary_terms").select("discipline")
+
+    const uniqueDisciplines = [...new Set(allTerms?.map((term) => term.discipline) || [])]
+    console.log("DEBUG: debugGeneralTermsIssue - All unique disciplines:", uniqueDisciplines)
+
+    // 3. Check pending terms specifically
+    const { data: pendingTerms, error: pendingError } = await supabase
       .from("glossary_terms")
       .select("*")
-      .eq("discipline", "프로젝트 일반 용어")
-      .order("created_at", { ascending: false })
-
-    console.log("DEBUG: debugGeneralTermsIssue - All General terms:", allGeneralTerms)
-    console.log("DEBUG: debugGeneralTermsIssue - General terms error:", generalError)
-
-    // 2. Check pending General terms specifically
-    const { data: pendingGeneral, error: pendingError } = await supabase
-      .from("glossary_terms")
-      .select("*")
-      .eq("discipline", "프로젝트 일반 용어")
       .eq("status", "pending")
 
-    console.log("DEBUG: debugGeneralTermsIssue - Pending General terms:", pendingGeneral)
-    console.log("DEBUG: debugGeneralTermsIssue - Pending General error:", pendingError)
+    const pendingByDiscipline =
+      pendingTerms?.reduce(
+        (acc, term) => {
+          acc[term.discipline] = (acc[term.discipline] || 0) + 1
+          return acc
+        },
+        {} as Record<string, number>,
+      ) || {}
 
-    // 3. Check RLS policies
+    console.log("DEBUG: debugGeneralTermsIssue - Pending terms by discipline:", pendingByDiscipline)
+
+    // 4. Check RLS policies (this might fail on free tier)
     const { data: policies, error: policyError } = await supabase
       .from("pg_policies")
       .select("*")
@@ -701,9 +754,10 @@ export async function debugGeneralTermsIssue() {
     console.log("DEBUG: debugGeneralTermsIssue - RLS policies:", policies)
     console.log("DEBUG: debugGeneralTermsIssue - Policy error:", policyError)
 
-    // 4. Test a simple update on a General term if available
-    if (pendingGeneral && pendingGeneral.length > 0) {
-      const testTerm = pendingGeneral[0]
+    // 5. Test a simple update on any pending term if available
+    let testUpdateResult = null
+    if (pendingTerms && pendingTerms.length > 0) {
+      const testTerm = pendingTerms[0]
       console.log("DEBUG: debugGeneralTermsIssue - Testing update on term:", testTerm)
 
       const { data: updateResult, error: updateError } = await supabase
@@ -712,23 +766,33 @@ export async function debugGeneralTermsIssue() {
         .eq("id", testTerm.id)
         .select()
 
-      console.log("DEBUG: debugGeneralTermsIssue - Update result:", updateResult)
-      console.log("DEBUG: debugGeneralTermsIssue - Update error:", updateError)
+      testUpdateResult = {
+        termId: testTerm.id,
+        termDiscipline: testTerm.discipline,
+        updateSuccess: !updateError,
+        updateResult: updateResult,
+        updateError: updateError?.message,
+      }
+
+      console.log("DEBUG: debugGeneralTermsIssue - Update test result:", testUpdateResult)
 
       // Revert the test update
       if (updateResult && updateResult.length > 0) {
         await supabase.from("glossary_terms").update({ status: "pending" }).eq("id", testTerm.id)
+        console.log("DEBUG: debugGeneralTermsIssue - Reverted test update")
       }
     }
 
     return {
       success: true,
       data: {
-        allGeneralTerms: allGeneralTerms || [],
-        pendingGeneral: pendingGeneral || [],
+        allGeneralTermsResults,
+        uniqueDisciplines,
+        pendingByDiscipline,
         policies: policies || [],
+        testUpdateResult,
         errors: {
-          generalError: generalError?.message,
+          allTermsError: allTermsError?.message,
           pendingError: pendingError?.message,
           policyError: policyError?.message,
         },
