@@ -570,22 +570,8 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
 
         <div className="bg-blue-50 border border-blue-200 rounded p-2 mt-2">
           <p className="text-xs text-blue-800">
-            💡 <strong>사용법:</strong>
+            💡 <strong>사용법:</strong> 템플릿 다운로드 → 파일 작성 → 파일 선택 → 파일 업로드
           </p>
-          <ul className="text-xs text-blue-700 mt-1 space-y-0.5 list-disc list-inside">
-            <li>
-              <strong>템플릿 다운로드</strong> → 파일 작성 → <strong>파일 선택</strong> → <strong>파일 업로드</strong>
-            </li>
-            <li>
-              형식: <code>공종약어;영어;한국어;설명</code>
-            </li>
-            <li>
-              예: <code>Gen;Project Management;프로젝트 관리;설명</code>
-            </li>
-            <li>
-              <strong>세미콜론(;)</strong>으로 구분하세요
-            </li>
-          </ul>
         </div>
       </div>
     </div>
