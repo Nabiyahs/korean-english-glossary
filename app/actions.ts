@@ -281,7 +281,7 @@ export async function approveGlossaryTerm(id: string) {
 
   console.log("DEBUG: approveGlossaryTerm - Attempting to approve term with ID:", id)
 
-  // First, check if the term exists and is pending
+  // Enhanced debugging: First, check if the term exists and is pending
   const { data: existingTerm, error: fetchError } = await supabase
     .from("glossary_terms")
     .select("*")
@@ -290,6 +290,7 @@ export async function approveGlossaryTerm(id: string) {
 
   if (fetchError) {
     console.error("DEBUG: approveGlossaryTerm - Error fetching term:", fetchError)
+    console.error("DEBUG: approveGlossaryTerm - Full error object:", JSON.stringify(fetchError, null, 2))
     return { success: false, message: `용어를 찾을 수 없습니다: ${fetchError.message}` }
   }
 
@@ -299,13 +300,19 @@ export async function approveGlossaryTerm(id: string) {
   }
 
   console.log("DEBUG: approveGlossaryTerm - Found term:", existingTerm)
+  console.log("DEBUG: approveGlossaryTerm - Term discipline:", existingTerm.discipline)
+  console.log("DEBUG: approveGlossaryTerm - Term status:", existingTerm.status)
 
   if (existingTerm.status === "approved") {
     console.log("DEBUG: approveGlossaryTerm - Term already approved")
     return { success: true, message: "용어가 이미 승인되어 있습니다." }
   }
 
-  // Update the term status
+  // Enhanced debugging: Log the exact update operation
+  console.log("DEBUG: approveGlossaryTerm - About to update term with ID:", id)
+  console.log("DEBUG: approveGlossaryTerm - Update payload:", { status: "approved" })
+
+  // Update the term status with enhanced error handling
   const { data: updatedData, error: updateError } = await supabase
     .from("glossary_terms")
     .update({ status: "approved" })
@@ -314,7 +321,36 @@ export async function approveGlossaryTerm(id: string) {
 
   if (updateError) {
     console.error("DEBUG: approveGlossaryTerm - Error updating term:", updateError)
+    console.error("DEBUG: approveGlossaryTerm - Full update error:", JSON.stringify(updateError, null, 2))
+
+    // Check if it's a RLS (Row Level Security) issue
+    if (updateError.message.includes("policy") || updateError.message.includes("permission")) {
+      return { success: false, message: `권한 오류: ${updateError.message}. RLS 정책을 확인해주세요.` }
+    }
+
     return { success: false, message: `승인 중 오류가 발생했습니다: ${updateError.message}` }
+  }
+
+  console.log("DEBUG: approveGlossaryTerm - Update successful, returned data:", updatedData)
+  console.log("DEBUG: approveGlossaryTerm - Number of rows updated:", updatedData?.length || 0)
+
+  // Verify the update actually happened
+  if (!updatedData || updatedData.length === 0) {
+    console.error("DEBUG: approveGlossaryTerm - No rows were updated!")
+    return { success: false, message: "업데이트가 적용되지 않았습니다. RLS 정책을 확인해주세요." }
+  }
+
+  // Double-check by fetching the term again
+  const { data: verifyTerm, error: verifyError } = await supabase
+    .from("glossary_terms")
+    .select("status")
+    .eq("id", id)
+    .single()
+
+  if (verifyError) {
+    console.error("DEBUG: approveGlossaryTerm - Error verifying update:", verifyError)
+  } else {
+    console.log("DEBUG: approveGlossaryTerm - Verification: term status is now:", verifyTerm.status)
   }
 
   console.log("DEBUG: approveGlossaryTerm - Term approved successfully:", updatedData)
@@ -529,5 +565,181 @@ export async function refreshDatabaseConnection() {
   } catch (error) {
     console.error("DEBUG: refreshDatabaseConnection - Unexpected error:", error)
     return { success: false, message: "데이터베이스 연결 중 오류가 발생했습니다." }
+  }
+}
+
+// NEW: Database monitoring functions
+export async function checkDatabaseLimits() {
+  const supabase = createClient()
+
+  try {
+    // Check database size (requires admin privileges, might not work on free tier)
+    const { data: sizeData, error: sizeError } = await supabase.rpc("get_database_size")
+
+    // Check table row counts
+    const { count: totalTerms, error: countError } = await supabase
+      .from("glossary_terms")
+      .select("*", { count: "exact", head: true })
+
+    // Check table sizes (this might require custom RPC function)
+    const { data: tableStats, error: statsError } = await supabase.rpc("get_table_stats")
+
+    return {
+      success: true,
+      data: {
+        totalTerms: totalTerms || 0,
+        databaseSize: sizeData || "Unknown",
+        tableStats: tableStats || [],
+        errors: {
+          sizeError: sizeError?.message,
+          countError: countError?.message,
+          statsError: statsError?.message,
+        },
+      },
+    }
+  } catch (error) {
+    console.error("Error checking database limits:", error)
+    return {
+      success: false,
+      message: "데이터베이스 한계 확인 중 오류가 발생했습니다.",
+      data: null,
+    }
+  }
+}
+
+export async function getDetailedDatabaseStats() {
+  const supabase = createClient()
+
+  try {
+    // Get row counts by status
+    const { data: statusCounts } = await supabase
+      .from("glossary_terms")
+      .select("status")
+      .then(({ data }) => {
+        const counts = { pending: 0, approved: 0, total: 0 }
+        data?.forEach((term) => {
+          counts[term.status as keyof typeof counts]++
+          counts.total++
+        })
+        return { data: counts }
+      })
+
+    // Get row counts by discipline
+    const { data: disciplineCounts } = await supabase
+      .from("glossary_terms")
+      .select("discipline")
+      .then(({ data }) => {
+        const counts: Record<string, number> = {}
+        data?.forEach((term) => {
+          counts[term.discipline] = (counts[term.discipline] || 0) + 1
+        })
+        return { data: counts }
+      })
+
+    // Get recent activity (last 24 hours)
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    const { data: recentTerms, error: recentError } = await supabase
+      .from("glossary_terms")
+      .select("*")
+      .gte("created_at", yesterday.toISOString())
+      .order("created_at", { ascending: false })
+
+    return {
+      success: true,
+      data: {
+        statusCounts: statusCounts || { pending: 0, approved: 0, total: 0 },
+        disciplineCounts: disciplineCounts || {},
+        recentActivity: recentTerms || [],
+        recentError: recentError?.message,
+      },
+    }
+  } catch (error) {
+    console.error("Error getting detailed database stats:", error)
+    return {
+      success: false,
+      message: "상세 통계 조회 중 오류가 발생했습니다.",
+      data: null,
+    }
+  }
+}
+
+// NEW: Enhanced debugging function specifically for General terms
+export async function debugGeneralTermsIssue() {
+  const supabase = createClient()
+
+  try {
+    console.log("DEBUG: debugGeneralTermsIssue - Starting comprehensive General terms debug")
+
+    // 1. Check all General terms
+    const { data: allGeneralTerms, error: generalError } = await supabase
+      .from("glossary_terms")
+      .select("*")
+      .eq("discipline", "프로젝트 일반 용어")
+      .order("created_at", { ascending: false })
+
+    console.log("DEBUG: debugGeneralTermsIssue - All General terms:", allGeneralTerms)
+    console.log("DEBUG: debugGeneralTermsIssue - General terms error:", generalError)
+
+    // 2. Check pending General terms specifically
+    const { data: pendingGeneral, error: pendingError } = await supabase
+      .from("glossary_terms")
+      .select("*")
+      .eq("discipline", "프로젝트 일반 용어")
+      .eq("status", "pending")
+
+    console.log("DEBUG: debugGeneralTermsIssue - Pending General terms:", pendingGeneral)
+    console.log("DEBUG: debugGeneralTermsIssue - Pending General error:", pendingError)
+
+    // 3. Check RLS policies
+    const { data: policies, error: policyError } = await supabase
+      .from("pg_policies")
+      .select("*")
+      .eq("tablename", "glossary_terms")
+
+    console.log("DEBUG: debugGeneralTermsIssue - RLS policies:", policies)
+    console.log("DEBUG: debugGeneralTermsIssue - Policy error:", policyError)
+
+    // 4. Test a simple update on a General term if available
+    if (pendingGeneral && pendingGeneral.length > 0) {
+      const testTerm = pendingGeneral[0]
+      console.log("DEBUG: debugGeneralTermsIssue - Testing update on term:", testTerm)
+
+      const { data: updateResult, error: updateError } = await supabase
+        .from("glossary_terms")
+        .update({ status: "approved" })
+        .eq("id", testTerm.id)
+        .select()
+
+      console.log("DEBUG: debugGeneralTermsIssue - Update result:", updateResult)
+      console.log("DEBUG: debugGeneralTermsIssue - Update error:", updateError)
+
+      // Revert the test update
+      if (updateResult && updateResult.length > 0) {
+        await supabase.from("glossary_terms").update({ status: "pending" }).eq("id", testTerm.id)
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        allGeneralTerms: allGeneralTerms || [],
+        pendingGeneral: pendingGeneral || [],
+        policies: policies || [],
+        errors: {
+          generalError: generalError?.message,
+          pendingError: pendingError?.message,
+          policyError: policyError?.message,
+        },
+      },
+    }
+  } catch (error) {
+    console.error("DEBUG: debugGeneralTermsIssue - Unexpected error:", error)
+    return {
+      success: false,
+      message: "General 용어 디버깅 중 오류가 발생했습니다.",
+      data: null,
+    }
   }
 }
