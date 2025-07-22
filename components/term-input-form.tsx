@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { type Discipline, type GlossaryTerm, disciplineMap } from "@/lib/data"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
-import { Download, Upload, CheckCircle } from "lucide-react"
+import { Download, Upload, CheckCircle, AlertCircle } from "lucide-react"
 
 interface TermInputFormProps {
   onAddTerm: (term: Omit<GlossaryTerm, "id" | "abbreviation" | "status" | "created_at" | "created_by">) => Promise<void>
@@ -31,6 +31,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
     message: string
     addedCount: number
     duplicateCount: number
+    details?: string[]
   } | null>(null)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [isProcessingFile, setIsProcessingFile] = useState(false)
@@ -113,6 +114,8 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
     if (file) {
       setUploadedFile(file)
       setUploadedFileName(file.name)
+      // Reset previous results
+      setUploadSuccess(null)
       // Reset file input
       if (event.target) {
         event.target.value = ""
@@ -124,79 +127,143 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
     if (!uploadedFile) return
 
     setIsProcessingFile(true)
-    if (uploadSuccess && !uploadSuccess.success) {
-      setUploadSuccess(null)
-    }
+    setUploadSuccess(null)
 
     try {
       const text = await uploadedFile.text()
-      const lines = text.split("\n").filter((line) => line.trim() !== "" && !line.includes("==="))
+      console.log("File content:", text) // Debug log
+
+      // Split by lines and clean up
+      const lines = text
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+      console.log("Processed lines:", lines) // Debug log
 
       const terms: Omit<GlossaryTerm, "id" | "abbreviation" | "status" | "created_at" | "created_by">[] = []
+      const errors: string[] = []
+      let lineNumber = 0
 
       for (const line of lines) {
-        const parts = line.split("/").map((part) => part.trim())
-        if (parts.length >= 3) {
-          const [disciplineAbbr, en, kr, description = ""] = parts
+        lineNumber++
 
-          const discipline = Object.keys(disciplineMap).find(
-            (key) => disciplineMap[key as Discipline].abbreviation === disciplineAbbr.trim(),
-          ) as Discipline | undefined
-
-          if (discipline && en.trim() && kr.trim()) {
-            terms.push({
-              en: en.trim(),
-              kr: kr.trim(),
-              description: description.trim(),
-              discipline,
-            })
-          }
+        // Skip comment lines or headers
+        if (line.startsWith("===") || line.startsWith("#") || line.startsWith("//")) {
+          continue
         }
+
+        // Split by tab or multiple spaces, then by slash
+        let parts: string[]
+        if (line.includes("\t")) {
+          parts = line.split("\t").map((part) => part.trim())
+        } else if (line.includes(" / ")) {
+          parts = line.split(" / ").map((part) => part.trim())
+        } else if (line.includes("/")) {
+          parts = line.split("/").map((part) => part.trim())
+        } else {
+          errors.push(`라인 ${lineNumber}: 구분자를 찾을 수 없습니다 - "${line}"`)
+          continue
+        }
+
+        console.log(`Line ${lineNumber} parts:`, parts) // Debug log
+
+        if (parts.length < 3) {
+          errors.push(`라인 ${lineNumber}: 최소 3개 항목이 필요합니다 (공종/영어/한국어) - "${line}"`)
+          continue
+        }
+
+        const [disciplineAbbr, en, kr, description = ""] = parts
+
+        // Find discipline by abbreviation
+        const discipline = Object.keys(disciplineMap).find(
+          (key) => disciplineMap[key as Discipline].abbreviation.toLowerCase() === disciplineAbbr.trim().toLowerCase(),
+        ) as Discipline | undefined
+
+        if (!discipline) {
+          errors.push(
+            `라인 ${lineNumber}: 알 수 없는 공종 "${disciplineAbbr}" - 사용 가능한 공종: ${Object.values(disciplineMap)
+              .map((d) => d.abbreviation)
+              .join(", ")}`,
+          )
+          continue
+        }
+
+        if (!en.trim() || !kr.trim()) {
+          errors.push(`라인 ${lineNumber}: 영어와 한국어는 필수입니다 - "${line}"`)
+          continue
+        }
+
+        terms.push({
+          en: en.trim(),
+          kr: kr.trim(),
+          description: description.trim(),
+          discipline,
+        })
       }
 
-      if (terms.length > 0) {
-        let addedCount = 0
-        let duplicateCount = 0
+      console.log("Parsed terms:", terms) // Debug log
+      console.log("Errors:", errors) // Debug log
 
-        for (const term of terms) {
-          const isDuplicate = existingGlossary.some(
-            (existingTerm) =>
-              existingTerm.en.toLowerCase() === term.en.toLowerCase() &&
-              existingTerm.kr.toLowerCase() === term.kr.toLowerCase(),
-          )
-
-          if (isDuplicate) {
-            duplicateCount++
-            continue
-          }
-
-          try {
-            await onAddTerm(term)
-            addedCount++
-          } catch (error) {
-            console.error(`Failed to add term ${term.en}:`, error)
-          }
-        }
-
-        // Set upload success state
-        setUploadSuccess({
-          success: true,
-          message: `${addedCount}개 용어가 성공적으로 업로드되었습니다.`,
-          addedCount,
-          duplicateCount,
-        })
-
-        // Clear the uploaded file
-        setUploadedFile(null)
-        setUploadedFileName("")
-      } else {
+      if (terms.length === 0) {
         setUploadSuccess({
           success: false,
           message: "유효한 용어를 찾을 수 없습니다.",
           addedCount: 0,
           duplicateCount: 0,
+          details:
+            errors.length > 0
+              ? errors
+              : [
+                  "파일 형식을 확인해주세요.",
+                  "각 줄은 '공종약어/영어/한국어/설명' 형식이어야 합니다.",
+                  "예: Gen/Project Management/프로젝트 관리/프로젝트 전반 관리",
+                ],
         })
+        return
       }
+
+      // Process terms
+      let addedCount = 0
+      let duplicateCount = 0
+      const processErrors: string[] = []
+
+      for (const term of terms) {
+        const isDuplicate = existingGlossary.some(
+          (existingTerm) =>
+            existingTerm.en.toLowerCase() === term.en.toLowerCase() &&
+            existingTerm.kr.toLowerCase() === term.kr.toLowerCase(),
+        )
+
+        if (isDuplicate) {
+          duplicateCount++
+          continue
+        }
+
+        try {
+          await onAddTerm(term)
+          addedCount++
+        } catch (error) {
+          console.error(`Failed to add term ${term.en}:`, error)
+          processErrors.push(`"${term.en}" 추가 실패`)
+        }
+      }
+
+      // Set upload success state
+      setUploadSuccess({
+        success: addedCount > 0,
+        message: addedCount > 0 ? `${addedCount}개 용어가 성공적으로 업로드되었습니다.` : "업로드된 용어가 없습니다.",
+        addedCount,
+        duplicateCount,
+        details: [
+          ...errors,
+          ...processErrors,
+          ...(duplicateCount > 0 ? [`${duplicateCount}개 용어는 이미 존재하여 건너뛰었습니다.`] : []),
+        ],
+      })
+
+      // Clear the uploaded file
+      setUploadedFile(null)
+      setUploadedFileName("")
     } catch (error) {
       console.error("File processing error:", error)
       setUploadSuccess({
@@ -204,6 +271,11 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
         message: "파일을 처리할 수 없습니다.",
         addedCount: 0,
         duplicateCount: 0,
+        details: [
+          "파일 읽기 오류가 발생했습니다.",
+          "텍스트 파일(.txt)인지 확인해주세요.",
+          "파일 인코딩이 UTF-8인지 확인해주세요.",
+        ],
       })
     } finally {
       setIsProcessingFile(false)
@@ -212,21 +284,41 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
 
   const downloadTemplate = () => {
     const templateContent = [
-      "=== SAMOO 용어집 템플릿 ===",
+      "# SAMOO 하이테크 1본부 - 한영 기술용어집 업로드 템플릿",
       "",
-      "Gen / Project Management / 프로젝트 관리 / 프로젝트 전반 관리",
-      "Arch / Building Design / 건물 설계 / 건축물 설계",
-      "Elec / Power System / 전력 시스템 / 전력 공급 시스템",
-      "Piping / Pipeline / 배관 / 유체 운반 관로",
+      "# 사용법:",
+      "# 1. 각 줄에 하나의 용어를 입력하세요",
+      "# 2. 형식: 공종약어/영어용어/한국어용어/설명",
+      "# 3. 설명은 생략 가능합니다",
+      "# 4. #으로 시작하는 줄은 무시됩니다",
       "",
-      "=== 형식: 공종약어 / 영어 / 한국어 / 설명 ===",
+      "# 공종 약어 목록:",
+      "# Gen = 프로젝트 일반 용어",
+      "# Arch = Architecture (건축)",
+      "# Elec = Electrical (전기)",
+      "# Piping = Piping (배관)",
+      "# Civil = Civil (토목)",
+      "# I&C = Instrument & Control (제어)",
+      "# FP = Fire Protection (소방)",
+      "# HVAC = HVAC (공조)",
+      "# Struct = Structure (구조)",
+      "# Cell = Cell (배터리)",
+      "",
+      "# 예시 (실제 업로드 시에는 아래 예시들을 삭제하고 실제 용어를 입력하세요):",
+      "Gen/Project Management/프로젝트 관리/프로젝트 전반적인 관리 업무",
+      "Arch/Floor Plan/평면도/건물의 각 층별 공간 배치를 나타낸 도면",
+      "Elec/Circuit Breaker/차단기/전기 회로의 과부하나 단락을 차단하는 보호 장치",
+      "Piping/Pipeline/배관/유체를 운반하는 관로 시스템",
+      "",
+      "# 위의 예시들을 참고하여 실제 용어를 입력하세요.",
+      "# 파일 저장 후 업로드 버튼을 클릭하세요.",
     ].join("\n")
 
     const blob = new Blob([templateContent], { type: "text/plain;charset=utf-8" })
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
     link.href = url
-    link.download = "SAMOO_용어집_템플릿.txt"
+    link.download = "SAMOO_용어집_업로드_템플릿.txt"
     document.body.appendChild(link)
     link.click()
     link.remove()
@@ -245,7 +337,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
 
     if (uploadedFile) {
       return {
-        text: "추가",
+        text: "파일 업로드",
         className: "bg-orange-600 text-white hover:bg-orange-700 animate-pulse",
         disabled: false,
       }
@@ -266,7 +358,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
         <h3 className="text-lg font-semibold text-samoo-blue">용어 추가</h3>
       </div>
 
-      {/* Upload Success Message */}
+      {/* Upload Success/Error Message */}
       {uploadSuccess && (
         <div
           className={cn(
@@ -276,8 +368,12 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
               : "bg-red-50 border-red-200 text-red-800",
           )}
         >
-          <div className="flex items-center gap-2">
-            {uploadSuccess.success && <CheckCircle className="w-4 h-4 text-green-600" />}
+          <div className="flex items-start gap-2">
+            {uploadSuccess.success ? (
+              <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+            )}
             <div className="flex-1">
               <p className="text-sm font-medium">{uploadSuccess.message}</p>
               {uploadSuccess.success && (
@@ -285,6 +381,16 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
                   <p>• 추가된 용어: {uploadSuccess.addedCount}개</p>
                   {uploadSuccess.duplicateCount > 0 && <p>• 중복으로 건너뛴 용어: {uploadSuccess.duplicateCount}개</p>}
                   <p className="text-green-700 font-medium">관리자 승인 후 용어집에 표시됩니다.</p>
+                </div>
+              )}
+              {uploadSuccess.details && uploadSuccess.details.length > 0 && (
+                <div className="mt-2 text-xs">
+                  <p className="font-medium mb-1">상세 정보:</p>
+                  <ul className="list-disc list-inside space-y-0.5 max-h-32 overflow-y-auto">
+                    {uploadSuccess.details.map((detail, index) => (
+                      <li key={index}>{detail}</li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </div>
@@ -389,7 +495,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
 
       {/* File Upload Section */}
       <div className="border-t border-samoo-gray-light pt-3 mt-3">
-        <Label className="text-xs font-medium text-samoo-gray mb-2 block">파일 업로드</Label>
+        <Label className="text-xs font-medium text-samoo-gray mb-2 block">📁 파일 업로드 (대량 추가)</Label>
 
         {/* Processing indicator */}
         {isProcessingFile && (
@@ -454,14 +560,25 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
         {uploadedFileName && (
           <div className="mt-2 text-xs text-samoo-blue">
             선택된 파일: {uploadedFileName}
-            <div className="text-green-600 font-medium mt-1">⬆️ 위의 "추가" 버튼을 클릭하여 파일을 업로드하세요</div>
+            <div className="text-orange-600 font-medium mt-1">⬆️ 위의 "파일 업로드" 버튼을 클릭하여 처리하세요</div>
           </div>
         )}
 
         <div className="bg-blue-50 border border-blue-200 rounded p-2 mt-2">
           <p className="text-xs text-blue-800">
-            💡 <strong>템플릿을 다운로드</strong>하여 형식에 맞게 작성한 후 업로드하세요.
+            💡 <strong>사용법:</strong>
           </p>
+          <ul className="text-xs text-blue-700 mt-1 space-y-0.5 list-disc list-inside">
+            <li>
+              <strong>템플릿 다운로드</strong> → 파일 작성 → <strong>파일 선택</strong> → <strong>파일 업로드</strong>
+            </li>
+            <li>
+              형식: <code>공종약어/영어/한국어/설명</code>
+            </li>
+            <li>
+              예: <code>Gen/Project Management/프로젝트 관리/설명</code>
+            </li>
+          </ul>
         </div>
       </div>
     </div>
