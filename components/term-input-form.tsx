@@ -148,27 +148,17 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
         lineNumber++
 
         // Skip comment lines or headers
-        if (line.startsWith("===") || line.startsWith("#") || line.startsWith("//")) {
+        if (line.startsWith("#") || line.startsWith("//") || line.startsWith("===")) {
           continue
         }
 
-        // Split by tab or multiple spaces, then by slash
-        let parts: string[]
-        if (line.includes("\t")) {
-          parts = line.split("\t").map((part) => part.trim())
-        } else if (line.includes(" / ")) {
-          parts = line.split(" / ").map((part) => part.trim())
-        } else if (line.includes("/")) {
-          parts = line.split("/").map((part) => part.trim())
-        } else {
-          errors.push(`라인 ${lineNumber}: 구분자를 찾을 수 없습니다 - "${line}"`)
-          continue
-        }
+        // Split by semicolon
+        const parts = line.split(";").map((part) => part.trim())
 
         console.log(`Line ${lineNumber} parts:`, parts) // Debug log
 
         if (parts.length < 3) {
-          errors.push(`라인 ${lineNumber}: 최소 3개 항목이 필요합니다 (공종/영어/한국어) - "${line}"`)
+          errors.push(`라인 ${lineNumber}: 최소 3개 항목이 필요합니다 (공종;영어;한국어) - "${line}"`)
           continue
         }
 
@@ -215,8 +205,8 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
               ? errors
               : [
                   "파일 형식을 확인해주세요.",
-                  "각 줄은 '공종약어/영어/한국어/설명' 형식이어야 합니다.",
-                  "예: Gen/Project Management/프로젝트 관리/프로젝트 전반 관리",
+                  "각 줄은 '공종약어;영어;한국어;설명' 형식이어야 합니다.",
+                  "예: Gen;Project Management;프로젝트 관리;프로젝트 전반 관리",
                 ],
         })
         return
@@ -285,15 +275,17 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
   const downloadTemplate = () => {
     const templateContent = [
       "# SAMOO 하이테크 1본부 - 한영 기술용어집 업로드 템플릿",
+      "# Template for English-Korean Technical Glossary Upload",
       "",
-      "# 사용법:",
-      "# 1. 각 줄에 하나의 용어를 입력하세요",
-      "# 2. 형식: 공종약어/영어용어/한국어용어/설명",
-      "# 3. 설명은 생략 가능합니다",
-      "# 4. #으로 시작하는 줄은 무시됩니다",
+      "# 📋 사용법 (How to Use):",
+      "# 1. 각 줄에 하나의 용어를 입력하세요 (Enter one term per line)",
+      "# 2. 형식: 공종약어;영어용어;한국어용어;설명 (Format: Discipline;English;Korean;Description)",
+      "# 3. 설명은 생략 가능합니다 (Description is optional)",
+      "# 4. #으로 시작하는 줄은 무시됩니다 (Lines starting with # are ignored)",
+      "# 5. 세미콜론(;)으로 구분합니다 (Use semicolon as separator)",
       "",
-      "# 공종 약어 목록:",
-      "# Gen = 프로젝트 일반 용어",
+      "# 🏷️ 공종 약어 목록 (Discipline Abbreviations):",
+      "# Gen = 프로젝트 일반 용어 (General Project Terms)",
       "# Arch = Architecture (건축)",
       "# Elec = Electrical (전기)",
       "# Piping = Piping (배관)",
@@ -304,14 +296,26 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
       "# Struct = Structure (구조)",
       "# Cell = Cell (배터리)",
       "",
-      "# 예시 (실제 업로드 시에는 아래 예시들을 삭제하고 실제 용어를 입력하세요):",
-      "Gen/Project Management/프로젝트 관리/프로젝트 전반적인 관리 업무",
-      "Arch/Floor Plan/평면도/건물의 각 층별 공간 배치를 나타낸 도면",
-      "Elec/Circuit Breaker/차단기/전기 회로의 과부하나 단락을 차단하는 보호 장치",
-      "Piping/Pipeline/배관/유체를 운반하는 관로 시스템",
+      "# ✅ 올바른 형식 예시 (Correct Format Examples):",
+      "# Gen;Project Management;프로젝트 관리;프로젝트 전반적인 관리 업무",
+      "# Arch;Floor Plan;평면도;건물의 각 층별 공간 배치를 나타낸 도면",
+      "# Elec;Circuit Breaker;차단기;전기 회로의 과부하나 단락을 차단하는 보호 장치",
+      "# Piping;Pipeline;배관;유체를 운반하는 관로 시스템",
+      "# Civil;Foundation;기초;건물의 하중을 지반에 전달하는 구조물",
       "",
-      "# 위의 예시들을 참고하여 실제 용어를 입력하세요.",
-      "# 파일 저장 후 업로드 버튼을 클릭하세요.",
+      "# ❌ 잘못된 형식 (Incorrect Format):",
+      "# Project Management/프로젝트 관리  ← 공종 없음, 슬래시 사용",
+      "# Gen,Project Management,프로젝트 관리  ← 쉼표 사용",
+      "# XYZ;Project Management;프로젝트 관리  ← 잘못된 공종 약어",
+      "",
+      "# 📝 실제 용어를 아래에 입력하세요 (Enter your actual terms below):",
+      "# 위의 예시들을 참고하여 실제 용어를 입력하고, 이 주석들은 삭제하세요",
+      "# Delete these comment lines and enter your actual terms",
+      "",
+      "# 예시 용어들 (Example terms - 실제 업로드 시 삭제하세요):",
+      "Gen;Project Kick-off;프로젝트 착수;프로젝트 시작 회의",
+      "Arch;Facade;파사드;건물의 정면 외벽이나 외관",
+      "Elec;Voltage;전압;전기 회로에서 전위차를 나타내는 단위",
     ].join("\n")
 
     const blob = new Blob([templateContent], { type: "text/plain;charset=utf-8" })
@@ -573,10 +577,13 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
               <strong>템플릿 다운로드</strong> → 파일 작성 → <strong>파일 선택</strong> → <strong>파일 업로드</strong>
             </li>
             <li>
-              형식: <code>공종약어/영어/한국어/설명</code>
+              형식: <code>공종약어;영어;한국어;설명</code>
             </li>
             <li>
-              예: <code>Gen/Project Management/프로젝트 관리/설명</code>
+              예: <code>Gen;Project Management;프로젝트 관리;설명</code>
+            </li>
+            <li>
+              <strong>세미콜론(;)</strong>으로 구분하세요
             </li>
           </ul>
         </div>
