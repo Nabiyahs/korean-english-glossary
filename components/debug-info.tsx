@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { getGlossaryTerms, debugDatabaseState } from "@/app/actions"
+import { getGlossaryTerms, debugDatabaseState, refreshDatabaseConnection } from "@/app/actions"
 import type { GlossaryTerm } from "@/lib/data"
 import { Eye, EyeOff, RefreshCw } from "lucide-react"
 
@@ -16,10 +16,25 @@ export function DebugInfo() {
     error?: string
   } | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState<string>("")
+
+  const testDatabaseConnection = async () => {
+    try {
+      const result = await refreshDatabaseConnection()
+      setConnectionStatus(result.success ? "✅ 연결 정상" : `❌ 연결 오류: ${result.message}`)
+    } catch (error) {
+      setConnectionStatus(`❌ 연결 실패: ${error}`)
+    }
+  }
 
   const fetchDebugData = async () => {
     setIsLoading(true)
+    setConnectionStatus("🔄 연결 테스트 중...")
+
     try {
+      // Test connection first
+      await testDatabaseConnection()
+
       const [pending, approved, all] = await Promise.all([
         getGlossaryTerms("pending", false),
         getGlossaryTerms("approved", false),
@@ -29,12 +44,19 @@ export function DebugInfo() {
       // Also call the debug function to log database state
       await debugDatabaseState()
 
+      console.log("DEBUG: fetchDebugData - Raw data:", {
+        pending: pending.length,
+        approved: approved.length,
+        all: all.length,
+      })
+
       setDebugData({
         pendingTerms: pending,
         approvedTerms: approved,
         allTerms: all,
       })
     } catch (error) {
+      console.error("DEBUG: fetchDebugData - Error:", error)
       setDebugData({
         pendingTerms: [],
         approvedTerms: [],
@@ -59,7 +81,7 @@ export function DebugInfo() {
           className="text-xs"
         >
           <Eye className="w-3 h-3 mr-1" />
-          디버그 정보 보기 (General 용어 확인)
+          디버그 정보 보기 (데이터베이스 상태 확인)
         </Button>
       </Card>
     )
@@ -68,7 +90,7 @@ export function DebugInfo() {
   return (
     <Card className="p-4 mb-4 bg-blue-50 border-blue-200">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-blue-800">🔍 데이터베이스 상태 확인 (General 용어 디버깅)</h3>
+        <h3 className="text-sm font-semibold text-blue-800">🔍 데이터베이스 상태 확인</h3>
         <div className="flex gap-2">
           <Button onClick={fetchDebugData} size="sm" disabled={isLoading}>
             <RefreshCw className={`w-3 h-3 mr-1 ${isLoading ? "animate-spin" : ""}`} />
@@ -79,6 +101,13 @@ export function DebugInfo() {
           </Button>
         </div>
       </div>
+
+      {/* Connection Status */}
+      {connectionStatus && (
+        <div className="mb-3 p-2 bg-white rounded border">
+          <p className="text-xs font-medium">데이터베이스 연결: {connectionStatus}</p>
+        </div>
+      )}
 
       {debugData && (
         <div className="space-y-3 text-xs">
@@ -109,100 +138,50 @@ export function DebugInfo() {
                 </div>
               </div>
 
-              {/* General Terms Analysis */}
-              <div className="bg-purple-50 border border-purple-300 rounded p-3">
-                <p className="font-medium text-purple-800 mb-2">🔍 General 용어 분석:</p>
-                <div className="space-y-2">
-                  <div>
-                    <span className="font-medium text-purple-700">승인된 General 용어:</span>
-                    <span className="ml-2 text-purple-600">
-                      {debugData.approvedTerms.filter((term) => term.discipline === "프로젝트 일반 용어").length}개
-                    </span>
-                  </div>
-                  <div>
-                    <span className="font-medium text-purple-700">대기 중인 General 용어:</span>
-                    <span className="ml-2 text-purple-600">
-                      {debugData.pendingTerms.filter((term) => term.discipline === "프로젝트 일반 용어").length}개
-                    </span>
-                  </div>
-                  <div>
-                    <span className="font-medium text-purple-700">전체 General 용어:</span>
-                    <span className="ml-2 text-purple-600">
-                      {debugData.allTerms.filter((term) => term.discipline === "프로젝트 일반 용어").length}개
-                    </span>
-                  </div>
+              {/* Database Operation Test */}
+              <div className="bg-orange-50 border border-orange-300 rounded p-3">
+                <p className="font-medium text-orange-800 mb-2">🔧 데이터베이스 작업 상태:</p>
+                <div className="space-y-1">
+                  <p className="text-orange-700">
+                    • 총 용어 수가 1,000개로 고정되어 있다면 → 데이터베이스 제한 또는 캐싱 문제
+                  </p>
+                  <p className="text-orange-700">• 승인 후에도 pending 상태라면 → 업데이트 쿼리 실패</p>
+                  <p className="text-orange-700">• 업로드 후 용어가 추가되지 않는다면 → 삽입 쿼리 실패</p>
                 </div>
               </div>
 
-              {/* Show some General terms if they exist */}
-              {debugData.allTerms.filter((term) => term.discipline === "프로젝트 일반 용어").length > 0 && (
-                <div className="bg-gray-50 border border-gray-300 rounded p-3">
-                  <p className="font-medium text-gray-800 mb-2">📝 General 용어 샘플 (최근 5개):</p>
-                  <div className="max-h-32 overflow-y-auto space-y-1">
-                    {debugData.allTerms
-                      .filter((term) => term.discipline === "프로젝트 일반 용어")
-                      .slice(0, 5)
-                      .map((term) => (
-                        <div key={term.id} className="text-gray-700 bg-white/50 rounded px-2 py-1">
-                          <span className="font-medium">{term.en}</span> /{" "}
-                          <span className="font-medium">{term.kr}</span>
-                          <span className="text-gray-600 ml-2 text-xs">
-                            ({term.status}) - {new Date(term.created_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
-
-              {debugData.pendingTerms.length > 0 && (
-                <div className="bg-amber-50 border border-amber-300 rounded p-3">
-                  <p className="font-medium text-amber-800 mb-2">🔍 대기 중인 용어들:</p>
-                  <div className="max-h-32 overflow-y-auto space-y-1">
-                    {debugData.pendingTerms.slice(0, 10).map((term) => (
-                      <div key={term.id} className="text-amber-700 bg-white/50 rounded px-2 py-1">
+              {/* Show recent operations */}
+              <div className="bg-gray-50 border border-gray-300 rounded p-3">
+                <p className="font-medium text-gray-800 mb-2">📝 최근 추가된 용어 (최근 10개):</p>
+                <div className="max-h-32 overflow-y-auto space-y-1">
+                  {debugData.allTerms
+                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                    .slice(0, 10)
+                    .map((term) => (
+                      <div key={term.id} className="text-gray-700 bg-white/50 rounded px-2 py-1">
                         <span className="font-medium">{term.en}</span> / <span className="font-medium">{term.kr}</span>
-                        <span className="text-amber-600 ml-2 text-xs">
-                          ({term.discipline}) - {new Date(term.created_at).toLocaleDateString()}
+                        <span
+                          className={`ml-2 text-xs px-1 rounded ${
+                            term.status === "pending" ? "bg-yellow-200 text-yellow-800" : "bg-green-200 text-green-800"
+                          }`}
+                        >
+                          {term.status}
                         </span>
+                        <span className="text-gray-600 ml-2 text-xs">{new Date(term.created_at).toLocaleString()}</span>
                       </div>
                     ))}
-                    {debugData.pendingTerms.length > 10 && (
-                      <p className="text-amber-600 text-center">... 외 {debugData.pendingTerms.length - 10}개 더</p>
-                    )}
-                  </div>
                 </div>
-              )}
+              </div>
 
               <div className="bg-white border border-blue-300 rounded p-3">
-                <p className="font-medium text-blue-800 mb-2">💡 General 용어 문제 해결:</p>
-                <ul className="text-blue-700 space-y-1">
-                  {debugData.allTerms.filter((term) => term.discipline === "프로젝트 일반 용어").length === 0 ? (
-                    <>
-                      <li>❌ General 용어가 데이터베이스에 없습니다.</li>
-                      <li>📝 업로드 시 "Gen" 약어를 사용했는지 확인하세요.</li>
-                      <li>🔄 용어를 다시 추가해보세요.</li>
-                    </>
-                  ) : debugData.approvedTerms.filter((term) => term.discipline === "프로젝트 일반 용어").length ===
-                    0 ? (
-                    <>
-                      <li>⏳ General 용어가 승인 대기 중입니다.</li>
-                      <li>
-                        🔗{" "}
-                        <a href="/admin" className="underline text-blue-600">
-                          관리자 페이지
-                        </a>
-                        에서 승인하세요.
-                      </li>
-                    </>
-                  ) : (
-                    <>
-                      <li>✅ General 용어가 정상적으로 승인되어 있습니다.</li>
-                      <li>🔄 페이지를 새로고침해보세요.</li>
-                      <li>🖥️ 브라우저 캐시를 지워보세요.</li>
-                    </>
-                  )}
-                </ul>
+                <p className="font-medium text-blue-800 mb-2">💡 문제 해결 단계:</p>
+                <ol className="text-blue-700 space-y-1 list-decimal list-inside">
+                  <li>브라우저 콘솔(F12)에서 "DEBUG:" 메시지 확인</li>
+                  <li>Supabase 대시보드에서 직접 데이터베이스 확인</li>
+                  <li>RLS(Row Level Security) 정책 확인</li>
+                  <li>네트워크 탭에서 API 요청/응답 확인</li>
+                  <li>페이지 강제 새로고침 (Ctrl+F5)</li>
+                </ol>
               </div>
             </>
           )}

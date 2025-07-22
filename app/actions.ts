@@ -143,6 +143,27 @@ export async function addGlossaryTerm(
     status: "pending",
   })
 
+  // Check for duplicates before inserting
+  const { data: existingTerms, error: checkError } = await supabase
+    .from("glossary_terms")
+    .select("id, en, kr")
+    .or(`en.ilike.${formattedTerm.en},kr.ilike.${formattedTerm.kr}`)
+
+  if (checkError) {
+    console.error("DEBUG: addGlossaryTerm - Error checking duplicates:", checkError)
+  } else if (existingTerms && existingTerms.length > 0) {
+    console.log("DEBUG: addGlossaryTerm - Found potential duplicates:", existingTerms)
+    const exactMatch = existingTerms.find(
+      (existing) =>
+        existing.en.toLowerCase() === formattedTerm.en.toLowerCase() &&
+        existing.kr.toLowerCase() === formattedTerm.kr.toLowerCase(),
+    )
+    if (exactMatch) {
+      console.log("DEBUG: addGlossaryTerm - Exact duplicate found, skipping")
+      return { success: false, message: "이미 존재하는 용어입니다." }
+    }
+  }
+
   const { data, error } = await supabase
     .from("glossary_terms")
     .insert({
@@ -151,19 +172,20 @@ export async function addGlossaryTerm(
       description: formattedTerm.description,
       discipline: formattedTerm.discipline,
       abbreviation: abbreviation,
-      status: "pending", // New terms are always pending
-      created_by: user?.id || null, // Pass user.id if available, otherwise null
+      status: "pending",
+      created_by: user?.id || null,
     })
     .select()
 
   if (error) {
-    console.error("Error adding glossary term:", error)
-    return { success: false, message: error.message }
+    console.error("DEBUG: addGlossaryTerm - Error adding term:", error)
+    return { success: false, message: `용어 추가 중 오류가 발생했습니다: ${error.message}` }
   }
 
   console.log("DEBUG: addGlossaryTerm - Successfully added term:", data)
 
-  revalidatePath("/") // Revalidate the main page to show updates
+  revalidatePath("/")
+  revalidatePath("/admin")
   return { success: true, message: "용어가 성공적으로 추가되었습니다. 관리자 승인 후 표시됩니다." }
 }
 
@@ -257,16 +279,46 @@ export async function deleteAllTerms() {
 export async function approveGlossaryTerm(id: string) {
   const supabase = createClient()
 
-  // Remove authentication check - anyone can approve
-  console.log("DEBUG: approveGlossaryTerm - Attempting to update glossary term status for ID:", id)
-  const { error } = await supabase.from("glossary_terms").update({ status: "approved" }).eq("id", id)
+  console.log("DEBUG: approveGlossaryTerm - Attempting to approve term with ID:", id)
 
-  if (error) {
-    console.error("DEBUG: approveGlossaryTerm - Error updating glossary term:", error)
-    return { success: false, message: error.message }
+  // First, check if the term exists and is pending
+  const { data: existingTerm, error: fetchError } = await supabase
+    .from("glossary_terms")
+    .select("*")
+    .eq("id", id)
+    .single()
+
+  if (fetchError) {
+    console.error("DEBUG: approveGlossaryTerm - Error fetching term:", fetchError)
+    return { success: false, message: `용어를 찾을 수 없습니다: ${fetchError.message}` }
   }
 
-  console.log("DEBUG: approveGlossaryTerm - Term approved successfully. Revalidating paths.")
+  if (!existingTerm) {
+    console.error("DEBUG: approveGlossaryTerm - Term not found")
+    return { success: false, message: "용어를 찾을 수 없습니다." }
+  }
+
+  console.log("DEBUG: approveGlossaryTerm - Found term:", existingTerm)
+
+  if (existingTerm.status === "approved") {
+    console.log("DEBUG: approveGlossaryTerm - Term already approved")
+    return { success: true, message: "용어가 이미 승인되어 있습니다." }
+  }
+
+  // Update the term status
+  const { data: updatedData, error: updateError } = await supabase
+    .from("glossary_terms")
+    .update({ status: "approved" })
+    .eq("id", id)
+    .select()
+
+  if (updateError) {
+    console.error("DEBUG: approveGlossaryTerm - Error updating term:", updateError)
+    return { success: false, message: `승인 중 오류가 발생했습니다: ${updateError.message}` }
+  }
+
+  console.log("DEBUG: approveGlossaryTerm - Term approved successfully:", updatedData)
+
   revalidatePath("/")
   revalidatePath("/admin")
   return { success: true, message: "용어가 성공적으로 승인되었습니다." }
@@ -291,32 +343,47 @@ export async function rejectGlossaryTerm(id: string) {
 export async function approveAllTerms() {
   const supabase = createClient()
 
-  // Get all pending terms first
+  console.log("DEBUG: approveAllTerms - Starting batch approval")
+
+  // Get all pending terms first with detailed logging
   const { data: pendingTerms, error: fetchError } = await supabase
     .from("glossary_terms")
-    .select("id")
+    .select("*")
     .eq("status", "pending")
 
   if (fetchError) {
-    console.error("Error fetching pending terms:", fetchError)
-    return { success: false, message: "대기 중인 용어를 가져오는 중 오류가 발생했습니다." }
+    console.error("DEBUG: approveAllTerms - Error fetching pending terms:", fetchError)
+    return { success: false, message: `대기 중인 용어를 가져오는 중 오류가 발생했습니다: ${fetchError.message}` }
   }
+
+  console.log("DEBUG: approveAllTerms - Found pending terms:", pendingTerms?.length || 0)
+  console.log("DEBUG: approveAllTerms - Pending terms details:", pendingTerms)
 
   if (!pendingTerms || pendingTerms.length === 0) {
     return { success: false, message: "승인할 대기 중인 용어가 없습니다." }
   }
 
-  // Update all pending terms to approved
-  const { error } = await supabase.from("glossary_terms").update({ status: "approved" }).eq("status", "pending")
+  // Update all pending terms to approved with explicit ID list
+  const pendingIds = pendingTerms.map((term) => term.id)
+  console.log("DEBUG: approveAllTerms - Updating term IDs:", pendingIds)
 
-  if (error) {
-    console.error("Error approving all terms:", error)
-    return { success: false, message: error.message }
+  const { data: updatedData, error: updateError } = await supabase
+    .from("glossary_terms")
+    .update({ status: "approved" })
+    .in("id", pendingIds)
+    .select()
+
+  if (updateError) {
+    console.error("DEBUG: approveAllTerms - Error updating terms:", updateError)
+    return { success: false, message: `일괄 승인 중 오류가 발생했습니다: ${updateError.message}` }
   }
+
+  console.log("DEBUG: approveAllTerms - Successfully updated terms:", updatedData?.length || 0)
+  console.log("DEBUG: approveAllTerms - Updated terms data:", updatedData)
 
   revalidatePath("/")
   revalidatePath("/admin")
-  return { success: true, message: `${pendingTerms.length}개의 용어가 모두 승인되었습니다.` }
+  return { success: true, message: `${updatedData?.length || pendingTerms.length}개의 용어가 모두 승인되었습니다.` }
 }
 
 export interface DuplicatePair {
@@ -442,5 +509,25 @@ export async function debugDatabaseState() {
   } catch (error) {
     console.error("Error in debugDatabaseState:", error)
     return { success: false, terms: [] }
+  }
+}
+
+export async function refreshDatabaseConnection() {
+  const supabase = createClient()
+
+  try {
+    // Test the connection
+    const { data, error } = await supabase.from("glossary_terms").select("count").limit(1)
+
+    if (error) {
+      console.error("DEBUG: refreshDatabaseConnection - Connection error:", error)
+      return { success: false, message: error.message }
+    }
+
+    console.log("DEBUG: refreshDatabaseConnection - Connection successful")
+    return { success: true, message: "데이터베이스 연결이 정상입니다." }
+  } catch (error) {
+    console.error("DEBUG: refreshDatabaseConnection - Unexpected error:", error)
+    return { success: false, message: "데이터베이스 연결 중 오류가 발생했습니다." }
   }
 }
