@@ -92,7 +92,27 @@ export async function getGlossaryTerms(statusFilter?: "pending" | "approved", fo
       return []
     }
 
-    return (data ?? []) as GlossaryTerm[]
+    const terms = (data ?? []) as GlossaryTerm[]
+
+    // Debug log for General terms
+    const generalTerms = terms.filter((term) => term.discipline === "프로젝트 일반 용어")
+    console.log("DEBUG: getGlossaryTerms - General terms found:", generalTerms.length)
+    console.log(
+      "DEBUG: getGlossaryTerms - General terms:",
+      generalTerms.map((t) => ({ id: t.id, en: t.en, kr: t.kr, status: t.status })),
+    )
+
+    // Debug log for all terms by discipline
+    const termsByDiscipline = terms.reduce(
+      (acc, term) => {
+        acc[term.discipline] = (acc[term.discipline] || 0) + 1
+        return acc
+      },
+      {} as Record<string, number>,
+    )
+    console.log("DEBUG: getGlossaryTerms - Terms by discipline:", termsByDiscipline)
+
+    return terms
   } catch (err: any) {
     console.error("Unexpected error in getGlossaryTerms:", err)
     return []
@@ -117,20 +137,31 @@ export async function addGlossaryTerm(
 
   const abbreviation = disciplineMap[formattedTerm.discipline].abbreviation
 
-  const { error } = await supabase.from("glossary_terms").insert({
-    en: formattedTerm.en,
-    kr: formattedTerm.kr,
-    description: formattedTerm.description,
-    discipline: formattedTerm.discipline,
-    abbreviation: abbreviation,
-    status: "pending", // New terms are always pending
-    created_by: user?.id || null, // Pass user.id if available, otherwise null
+  console.log("DEBUG: addGlossaryTerm - Adding term:", {
+    ...formattedTerm,
+    abbreviation,
+    status: "pending",
   })
+
+  const { data, error } = await supabase
+    .from("glossary_terms")
+    .insert({
+      en: formattedTerm.en,
+      kr: formattedTerm.kr,
+      description: formattedTerm.description,
+      discipline: formattedTerm.discipline,
+      abbreviation: abbreviation,
+      status: "pending", // New terms are always pending
+      created_by: user?.id || null, // Pass user.id if available, otherwise null
+    })
+    .select()
 
   if (error) {
     console.error("Error adding glossary term:", error)
     return { success: false, message: error.message }
   }
+
+  console.log("DEBUG: addGlossaryTerm - Successfully added term:", data)
 
   revalidatePath("/") // Revalidate the main page to show updates
   return { success: true, message: "용어가 성공적으로 추가되었습니다. 관리자 승인 후 표시됩니다." }
@@ -385,4 +416,31 @@ export async function rejectAllTerms() {
   revalidatePath("/admin")
   revalidatePath("/")
   return { success: true, message: `${pendingTerms.length}개의 용어가 모두 거부되었습니다.` }
+}
+
+// Add a new debug function to check database state
+export async function debugDatabaseState() {
+  const supabase = createClient()
+
+  try {
+    const { data: allTerms, error } = await supabase
+      .from("glossary_terms")
+      .select("*")
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      console.error("Error fetching all terms for debug:", error)
+      return { success: false, terms: [] }
+    }
+
+    console.log("DEBUG: All terms in database:", allTerms)
+
+    const generalTerms = allTerms?.filter((term) => term.discipline === "프로젝트 일반 용어") || []
+    console.log("DEBUG: General terms in database:", generalTerms)
+
+    return { success: true, terms: allTerms || [] }
+  } catch (error) {
+    console.error("Error in debugDatabaseState:", error)
+    return { success: false, terms: [] }
+  }
 }

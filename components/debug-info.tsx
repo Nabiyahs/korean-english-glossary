@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { getGlossaryTerms } from "@/app/actions"
+import { getGlossaryTerms, debugDatabaseState } from "@/app/actions"
 import type { GlossaryTerm } from "@/lib/data"
 import { Eye, EyeOff, RefreshCw } from "lucide-react"
 
@@ -25,6 +25,9 @@ export function DebugInfo() {
         getGlossaryTerms("approved", false),
         getGlossaryTerms(undefined, true), // Admin view - all terms
       ])
+
+      // Also call the debug function to log database state
+      await debugDatabaseState()
 
       setDebugData({
         pendingTerms: pending,
@@ -56,7 +59,7 @@ export function DebugInfo() {
           className="text-xs"
         >
           <Eye className="w-3 h-3 mr-1" />
-          디버그 정보 보기 (추가한 단어 확인)
+          디버그 정보 보기 (General 용어 확인)
         </Button>
       </Card>
     )
@@ -65,7 +68,7 @@ export function DebugInfo() {
   return (
     <Card className="p-4 mb-4 bg-blue-50 border-blue-200">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-blue-800">🔍 데이터베이스 상태 확인</h3>
+        <h3 className="text-sm font-semibold text-blue-800">🔍 데이터베이스 상태 확인 (General 용어 디버깅)</h3>
         <div className="flex gap-2">
           <Button onClick={fetchDebugData} size="sm" disabled={isLoading}>
             <RefreshCw className={`w-3 h-3 mr-1 ${isLoading ? "animate-spin" : ""}`} />
@@ -106,6 +109,52 @@ export function DebugInfo() {
                 </div>
               </div>
 
+              {/* General Terms Analysis */}
+              <div className="bg-purple-50 border border-purple-300 rounded p-3">
+                <p className="font-medium text-purple-800 mb-2">🔍 General 용어 분석:</p>
+                <div className="space-y-2">
+                  <div>
+                    <span className="font-medium text-purple-700">승인된 General 용어:</span>
+                    <span className="ml-2 text-purple-600">
+                      {debugData.approvedTerms.filter((term) => term.discipline === "프로젝트 일반 용어").length}개
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-purple-700">대기 중인 General 용어:</span>
+                    <span className="ml-2 text-purple-600">
+                      {debugData.pendingTerms.filter((term) => term.discipline === "프로젝트 일반 용어").length}개
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-purple-700">전체 General 용어:</span>
+                    <span className="ml-2 text-purple-600">
+                      {debugData.allTerms.filter((term) => term.discipline === "프로젝트 일반 용어").length}개
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Show some General terms if they exist */}
+              {debugData.allTerms.filter((term) => term.discipline === "프로젝트 일반 용어").length > 0 && (
+                <div className="bg-gray-50 border border-gray-300 rounded p-3">
+                  <p className="font-medium text-gray-800 mb-2">📝 General 용어 샘플 (최근 5개):</p>
+                  <div className="max-h-32 overflow-y-auto space-y-1">
+                    {debugData.allTerms
+                      .filter((term) => term.discipline === "프로젝트 일반 용어")
+                      .slice(0, 5)
+                      .map((term) => (
+                        <div key={term.id} className="text-gray-700 bg-white/50 rounded px-2 py-1">
+                          <span className="font-medium">{term.en}</span> /{" "}
+                          <span className="font-medium">{term.kr}</span>
+                          <span className="text-gray-600 ml-2 text-xs">
+                            ({term.status}) - {new Date(term.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
               {debugData.pendingTerms.length > 0 && (
                 <div className="bg-amber-50 border border-amber-300 rounded p-3">
                   <p className="font-medium text-amber-800 mb-2">🔍 대기 중인 용어들:</p>
@@ -114,7 +163,7 @@ export function DebugInfo() {
                       <div key={term.id} className="text-amber-700 bg-white/50 rounded px-2 py-1">
                         <span className="font-medium">{term.en}</span> / <span className="font-medium">{term.kr}</span>
                         <span className="text-amber-600 ml-2 text-xs">
-                          ({new Date(term.created_at).toLocaleDateString()})
+                          ({term.discipline}) - {new Date(term.created_at).toLocaleDateString()}
                         </span>
                       </div>
                     ))}
@@ -126,30 +175,31 @@ export function DebugInfo() {
               )}
 
               <div className="bg-white border border-blue-300 rounded p-3">
-                <p className="font-medium text-blue-800 mb-2">💡 해결 방법:</p>
+                <p className="font-medium text-blue-800 mb-2">💡 General 용어 문제 해결:</p>
                 <ul className="text-blue-700 space-y-1">
-                  {debugData.pendingTerms.length > 0 ? (
+                  {debugData.allTerms.filter((term) => term.discipline === "프로젝트 일반 용어").length === 0 ? (
                     <>
-                      <li>✅ 좋은 소식! 추가한 용어들이 데이터베이스에 저장되어 있습니다.</li>
-                      <li>⏳ 현재 {debugData.pendingTerms.length}개 용어가 관리자 승인을 기다리고 있습니다.</li>
+                      <li>❌ General 용어가 데이터베이스에 없습니다.</li>
+                      <li>📝 업로드 시 "Gen" 약어를 사용했는지 확인하세요.</li>
+                      <li>🔄 용어를 다시 추가해보세요.</li>
+                    </>
+                  ) : debugData.approvedTerms.filter((term) => term.discipline === "프로젝트 일반 용어").length ===
+                    0 ? (
+                    <>
+                      <li>⏳ General 용어가 승인 대기 중입니다.</li>
                       <li>
                         🔗{" "}
                         <a href="/admin" className="underline text-blue-600">
                           관리자 페이지
                         </a>
-                        에서 승인하면 메인 페이지에 표시됩니다.
+                        에서 승인하세요.
                       </li>
-                    </>
-                  ) : debugData.approvedTerms.length > 0 ? (
-                    <>
-                      <li>✅ 용어들이 정상적으로 승인되어 표시되고 있습니다.</li>
-                      <li>🔄 페이지를 새로고침해보세요.</li>
                     </>
                   ) : (
                     <>
-                      <li>❌ 데이터베이스가 비어있습니다.</li>
-                      <li>🔄 배포 과정에서 데이터가 초기화되었을 수 있습니다.</li>
-                      <li>📝 용어를 다시 추가해보세요.</li>
+                      <li>✅ General 용어가 정상적으로 승인되어 있습니다.</li>
+                      <li>🔄 페이지를 새로고침해보세요.</li>
+                      <li>🖥️ 브라우저 캐시를 지워보세요.</li>
                     </>
                   )}
                 </ul>

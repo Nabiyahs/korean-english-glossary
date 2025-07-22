@@ -164,10 +164,16 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
 
         const [disciplineAbbr, en, kr, description = ""] = parts
 
-        // Find discipline by abbreviation
-        const discipline = Object.keys(disciplineMap).find(
-          (key) => disciplineMap[key as Discipline].abbreviation.toLowerCase() === disciplineAbbr.trim().toLowerCase(),
-        ) as Discipline | undefined
+        // Find discipline by abbreviation - Add more detailed logging
+        console.log(`Looking for discipline with abbreviation: "${disciplineAbbr}"`)
+        const discipline = Object.keys(disciplineMap).find((key) => {
+          const abbrev = disciplineMap[key as Discipline].abbreviation.toLowerCase()
+          const inputAbbrev = disciplineAbbr.trim().toLowerCase()
+          console.log(`Comparing "${abbrev}" with "${inputAbbrev}"`)
+          return abbrev === inputAbbrev
+        }) as Discipline | undefined
+
+        console.log(`Found discipline: ${discipline}`) // Debug log
 
         if (!discipline) {
           errors.push(
@@ -183,15 +189,18 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
           continue
         }
 
-        terms.push({
+        const newTerm = {
           en: en.trim(),
           kr: kr.trim(),
           description: description.trim(),
           discipline,
-        })
+        }
+
+        console.log(`Adding term:`, newTerm) // Debug log
+        terms.push(newTerm)
       }
 
-      console.log("Parsed terms:", terms) // Debug log
+      console.log("Final parsed terms:", terms) // Debug log
       console.log("Errors:", errors) // Debug log
 
       if (terms.length === 0) {
