@@ -85,59 +85,14 @@ export async function getGlossaryTerms(statusFilter?: "pending" | "approved", fo
     }
     // If forAdmin is true, no status filter is applied, fetching all terms.
 
-    const { data, error } = await query
-      .order("discipline", { ascending: true })
-      .order("en", { ascending: true })
-      .limit(5000)
+    const { data, error } = await query.order("discipline", { ascending: true }).order("en", { ascending: true })
 
     if (error) {
       console.error("Error fetching glossary terms:", error)
       return []
     }
 
-    const terms = (data ?? []) as GlossaryTerm[]
-
-    // Enhanced debug logging for General terms
-    const generalTerms = terms.filter((term) => term.discipline === "프로젝트 일반 용어")
-    console.log("DEBUG: getGlossaryTerms - General terms found:", generalTerms.length)
-    console.log(
-      "DEBUG: getGlossaryTerms - General terms sample:",
-      generalTerms.slice(0, 5).map((t) => ({
-        id: t.id,
-        en: t.en,
-        kr: t.kr,
-        status: t.status,
-        discipline: t.discipline,
-        disciplineLength: t.discipline.length,
-        disciplineBytes: new TextEncoder().encode(t.discipline),
-      })),
-    )
-
-    // Check for all possible General term variations
-    const possibleGeneralNames = ["프로젝트 일반 용어", "프로젝트일반용어", "일반용어", "General", "프로젝트 일반용어"]
-
-    possibleGeneralNames.forEach((name) => {
-      const matchingTerms = terms.filter((term) => term.discipline === name)
-      if (matchingTerms.length > 0) {
-        console.log(`DEBUG: getGlossaryTerms - Found ${matchingTerms.length} terms with discipline "${name}"`)
-      }
-    })
-
-    // Debug log for all terms by discipline
-    const termsByDiscipline = terms.reduce(
-      (acc, term) => {
-        acc[term.discipline] = (acc[term.discipline] || 0) + 1
-        return acc
-      },
-      {} as Record<string, number>,
-    )
-    console.log("DEBUG: getGlossaryTerms - Terms by discipline:", termsByDiscipline)
-
-    // Debug log for unique disciplines
-    const uniqueDisciplines = [...new Set(terms.map((term) => term.discipline))]
-    console.log("DEBUG: getGlossaryTerms - Unique disciplines:", uniqueDisciplines)
-
-    return terms
+    return (data ?? []) as GlossaryTerm[]
   } catch (err: any) {
     console.error("Unexpected error in getGlossaryTerms:", err)
     return []
@@ -148,6 +103,9 @@ export async function addGlossaryTerm(
   term: Omit<GlossaryTerm, "id" | "abbreviation" | "status" | "created_at" | "created_by">,
 ) {
   const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   // Format the term data
   const formattedTerm = {
@@ -159,55 +117,22 @@ export async function addGlossaryTerm(
 
   const abbreviation = disciplineMap[formattedTerm.discipline].abbreviation
 
-  console.log("DEBUG: addGlossaryTerm - Adding term:", {
-    ...formattedTerm,
-    abbreviation,
-    status: "pending",
+  const { error } = await supabase.from("glossary_terms").insert({
+    en: formattedTerm.en,
+    kr: formattedTerm.kr,
+    description: formattedTerm.description,
+    discipline: formattedTerm.discipline,
+    abbreviation: abbreviation,
+    status: "pending", // New terms are always pending
+    created_by: user?.id || null, // Pass user.id if available, otherwise null
   })
 
-  // Check for duplicates before inserting
-  const { data: existingTerms, error: checkError } = await supabase
-    .from("glossary_terms")
-    .select("id, en, kr")
-    .or(`en.ilike.${formattedTerm.en},kr.ilike.${formattedTerm.kr}`)
-
-  if (checkError) {
-    console.error("DEBUG: addGlossaryTerm - Error checking duplicates:", checkError)
-  } else if (existingTerms && existingTerms.length > 0) {
-    console.log("DEBUG: addGlossaryTerm - Found potential duplicates:", existingTerms)
-    const exactMatch = existingTerms.find(
-      (existing) =>
-        existing.en.toLowerCase() === formattedTerm.en.toLowerCase() &&
-        existing.kr.toLowerCase() === formattedTerm.kr.toLowerCase(),
-    )
-    if (exactMatch) {
-      console.log("DEBUG: addGlossaryTerm - Exact duplicate found, skipping")
-      return { success: false, message: "이미 존재하는 용어입니다." }
-    }
-  }
-
-  const { data, error } = await supabase
-    .from("glossary_terms")
-    .insert({
-      en: formattedTerm.en,
-      kr: formattedTerm.kr,
-      description: formattedTerm.description,
-      discipline: formattedTerm.discipline,
-      abbreviation: abbreviation,
-      status: "pending",
-      created_by: null, // No authentication required
-    })
-    .select()
-
   if (error) {
-    console.error("DEBUG: addGlossaryTerm - Error adding term:", error)
-    return { success: false, message: `용어 추가 중 오류가 발생했습니다: ${error.message}` }
+    console.error("Error adding glossary term:", error)
+    return { success: false, message: error.message }
   }
 
-  console.log("DEBUG: addGlossaryTerm - Successfully added term:", data)
-
-  revalidatePath("/")
-  revalidatePath("/admin")
+  revalidatePath("/") // Revalidate the main page to show updates
   return { success: true, message: "용어가 성공적으로 추가되었습니다. 관리자 승인 후 표시됩니다." }
 }
 
@@ -242,7 +167,7 @@ export async function updateGlossaryTerm(
 export async function deleteGlossaryTerm(id: string) {
   const supabase = createClient()
 
-  // No authentication check needed - anyone can delete via /admin
+  // Remove authentication check - anyone can delete
   const { error } = await supabase.from("glossary_terms").delete().eq("id", id)
 
   if (error) {
@@ -301,86 +226,16 @@ export async function deleteAllTerms() {
 export async function approveGlossaryTerm(id: string) {
   const supabase = createClient()
 
-  console.log("DEBUG: approveGlossaryTerm - Attempting to approve term with ID:", id)
+  // Remove authentication check - anyone can approve
+  console.log("DEBUG: approveGlossaryTerm - Attempting to update glossary term status for ID:", id)
+  const { error } = await supabase.from("glossary_terms").update({ status: "approved" }).eq("id", id)
 
-  // Enhanced debugging: First, check if the term exists and is pending
-  const { data: existingTerm, error: fetchError } = await supabase
-    .from("glossary_terms")
-    .select("*")
-    .eq("id", id)
-    .single()
-
-  if (fetchError) {
-    console.error("DEBUG: approveGlossaryTerm - Error fetching term:", fetchError)
-    console.error("DEBUG: approveGlossaryTerm - Full error object:", JSON.stringify(fetchError, null, 2))
-    return { success: false, message: `용어를 찾을 수 없습니다: ${fetchError.message}` }
+  if (error) {
+    console.error("DEBUG: approveGlossaryTerm - Error updating glossary term:", error)
+    return { success: false, message: error.message }
   }
 
-  if (!existingTerm) {
-    console.error("DEBUG: approveGlossaryTerm - Term not found")
-    return { success: false, message: "용어를 찾을 수 없습니다." }
-  }
-
-  console.log("DEBUG: approveGlossaryTerm - Found term:", existingTerm)
-  console.log("DEBUG: approveGlossaryTerm - Term discipline:", existingTerm.discipline)
-  console.log(
-    "DEBUG: approveGlossaryTerm - Term discipline (hex):",
-    Buffer.from(existingTerm.discipline, "utf8").toString("hex"),
-  )
-  console.log("DEBUG: approveGlossaryTerm - Term status:", existingTerm.status)
-
-  if (existingTerm.status === "approved") {
-    console.log("DEBUG: approveGlossaryTerm - Term already approved")
-    return { success: true, message: "용어가 이미 승인되어 있습니다." }
-  }
-
-  // Enhanced debugging: Log the exact update operation
-  console.log("DEBUG: approveGlossaryTerm - About to update term with ID:", id)
-  console.log("DEBUG: approveGlossaryTerm - Update payload:", { status: "approved" })
-
-  // Update the term status with enhanced error handling
-  const { data: updatedData, error: updateError } = await supabase
-    .from("glossary_terms")
-    .update({ status: "approved" })
-    .eq("id", id)
-    .select()
-
-  if (updateError) {
-    console.error("DEBUG: approveGlossaryTerm - Error updating term:", updateError)
-    console.error("DEBUG: approveGlossaryTerm - Full update error:", JSON.stringify(updateError, null, 2))
-
-    // Check if it's a RLS (Row Level Security) issue
-    if (updateError.message.includes("policy") || updateError.message.includes("permission")) {
-      return { success: false, message: `권한 오류: ${updateError.message}. RLS 정책을 확인해주세요.` }
-    }
-
-    return { success: false, message: `승인 중 오류가 발생했습니다: ${updateError.message}` }
-  }
-
-  console.log("DEBUG: approveGlossaryTerm - Update successful, returned data:", updatedData)
-  console.log("DEBUG: approveGlossaryTerm - Number of rows updated:", updatedData?.length || 0)
-
-  // Verify the update actually happened
-  if (!updatedData || updatedData.length === 0) {
-    console.error("DEBUG: approveGlossaryTerm - No rows were updated!")
-    return { success: false, message: "업데이트가 적용되지 않았습니다. RLS 정책을 확인해주세요." }
-  }
-
-  // Double-check by fetching the term again
-  const { data: verifyTerm, error: verifyError } = await supabase
-    .from("glossary_terms")
-    .select("status")
-    .eq("id", id)
-    .single()
-
-  if (verifyError) {
-    console.error("DEBUG: approveGlossaryTerm - Error verifying update:", verifyError)
-  } else {
-    console.log("DEBUG: approveGlossaryTerm - Verification: term status is now:", verifyTerm.status)
-  }
-
-  console.log("DEBUG: approveGlossaryTerm - Term approved successfully:", updatedData)
-
+  console.log("DEBUG: approveGlossaryTerm - Term approved successfully. Revalidating paths.")
   revalidatePath("/")
   revalidatePath("/admin")
   return { success: true, message: "용어가 성공적으로 승인되었습니다." }
@@ -389,7 +244,7 @@ export async function approveGlossaryTerm(id: string) {
 export async function rejectGlossaryTerm(id: string) {
   const supabase = createClient()
 
-  // No authentication check needed - anyone can reject/delete via /admin
+  // Remove authentication check - anyone can reject/delete
   const { error } = await supabase.from("glossary_terms").delete().eq("id", id)
 
   if (error) {
@@ -405,47 +260,32 @@ export async function rejectGlossaryTerm(id: string) {
 export async function approveAllTerms() {
   const supabase = createClient()
 
-  console.log("DEBUG: approveAllTerms - Starting batch approval")
-
-  // Get all pending terms first with detailed logging
+  // Get all pending terms first
   const { data: pendingTerms, error: fetchError } = await supabase
     .from("glossary_terms")
-    .select("*")
+    .select("id")
     .eq("status", "pending")
 
   if (fetchError) {
-    console.error("DEBUG: approveAllTerms - Error fetching pending terms:", fetchError)
-    return { success: false, message: `대기 중인 용어를 가져오는 중 오류가 발생했습니다: ${fetchError.message}` }
+    console.error("Error fetching pending terms:", fetchError)
+    return { success: false, message: "대기 중인 용어를 가져오는 중 오류가 발생했습니다." }
   }
-
-  console.log("DEBUG: approveAllTerms - Found pending terms:", pendingTerms?.length || 0)
-  console.log("DEBUG: approveAllTerms - Pending terms details:", pendingTerms)
 
   if (!pendingTerms || pendingTerms.length === 0) {
     return { success: false, message: "승인할 대기 중인 용어가 없습니다." }
   }
 
-  // Update all pending terms to approved with explicit ID list
-  const pendingIds = pendingTerms.map((term) => term.id)
-  console.log("DEBUG: approveAllTerms - Updating term IDs:", pendingIds)
+  // Update all pending terms to approved
+  const { error } = await supabase.from("glossary_terms").update({ status: "approved" }).eq("status", "pending")
 
-  const { data: updatedData, error: updateError } = await supabase
-    .from("glossary_terms")
-    .update({ status: "approved" })
-    .in("id", pendingIds)
-    .select()
-
-  if (updateError) {
-    console.error("DEBUG: approveAllTerms - Error updating terms:", updateError)
-    return { success: false, message: `일괄 승인 중 오류가 발생했습니다: ${updateError.message}` }
+  if (error) {
+    console.error("Error approving all terms:", error)
+    return { success: false, message: error.message }
   }
-
-  console.log("DEBUG: approveAllTerms - Successfully updated terms:", updatedData?.length || 0)
-  console.log("DEBUG: approveAllTerms - Updated terms data:", updatedData)
 
   revalidatePath("/")
   revalidatePath("/admin")
-  return { success: true, message: `${updatedData?.length || pendingTerms.length}개의 용어가 모두 승인되었습니다.` }
+  return { success: true, message: `${pendingTerms.length}개의 용어가 모두 승인되었습니다.` }
 }
 
 export interface DuplicatePair {
@@ -545,265 +385,4 @@ export async function rejectAllTerms() {
   revalidatePath("/admin")
   revalidatePath("/")
   return { success: true, message: `${pendingTerms.length}개의 용어가 모두 거부되었습니다.` }
-}
-
-// Add a new debug function to check database state
-export async function debugDatabaseState() {
-  const supabase = createClient()
-
-  try {
-    const { data: allTerms, error } = await supabase
-      .from("glossary_terms")
-      .select("*")
-      .order("created_at", { ascending: false })
-
-    if (error) {
-      console.error("Error fetching all terms for debug:", error)
-      return { success: false, terms: [] }
-    }
-
-    console.log("DEBUG: All terms in database:", allTerms)
-
-    const generalTerms = allTerms?.filter((term) => term.discipline === "프로젝트 일반 용어") || []
-    console.log("DEBUG: General terms in database:", generalTerms)
-
-    return { success: true, terms: allTerms || [] }
-  } catch (error) {
-    console.error("Error in debugDatabaseState:", error)
-    return { success: false, terms: [] }
-  }
-}
-
-export async function refreshDatabaseConnection() {
-  const supabase = createClient()
-
-  try {
-    // Test the connection
-    const { data, error } = await supabase.from("glossary_terms").select("count").limit(1)
-
-    if (error) {
-      console.error("DEBUG: refreshDatabaseConnection - Connection error:", error)
-      return { success: false, message: error.message }
-    }
-
-    console.log("DEBUG: refreshDatabaseConnection - Connection successful")
-    return { success: true, message: "데이터베이스 연결이 정상입니다." }
-  } catch (error) {
-    console.error("DEBUG: refreshDatabaseConnection - Unexpected error:", error)
-    return { success: false, message: "데이터베이스 연결 중 오류가 발생했습니다." }
-  }
-}
-
-// NEW: Database monitoring functions
-export async function checkDatabaseLimits() {
-  const supabase = createClient()
-
-  try {
-    // Check database size (requires admin privileges, might not work on free tier)
-    const { data: sizeData, error: sizeError } = await supabase.rpc("get_database_size")
-
-    // Check table row counts
-    const { count: totalTerms, error: countError } = await supabase
-      .from("glossary_terms")
-      .select("*", { count: "exact", head: true })
-
-    // Check table sizes (this might require custom RPC function)
-    const { data: tableStats, error: statsError } = await supabase.rpc("get_table_stats")
-
-    return {
-      success: true,
-      data: {
-        totalTerms: totalTerms || 0,
-        databaseSize: sizeData || "Unknown",
-        tableStats: tableStats || [],
-        errors: {
-          sizeError: sizeError?.message,
-          countError: countError?.message,
-          statsError: statsError?.message,
-        },
-      },
-    }
-  } catch (error) {
-    console.error("Error checking database limits:", error)
-    return {
-      success: false,
-      message: "데이터베이스 한계 확인 중 오류가 발생했습니다.",
-      data: null,
-    }
-  }
-}
-
-export async function getDetailedDatabaseStats() {
-  const supabase = createClient()
-
-  try {
-    // Get row counts by status
-    const { data: statusCounts } = await supabase
-      .from("glossary_terms")
-      .select("status")
-      .then(({ data }) => {
-        const counts = { pending: 0, approved: 0, total: 0 }
-        data?.forEach((term) => {
-          counts[term.status as keyof typeof counts]++
-          counts.total++
-        })
-        return { data: counts }
-      })
-
-    // Get row counts by discipline
-    const { data: disciplineCounts } = await supabase
-      .from("glossary_terms")
-      .select("discipline")
-      .then(({ data }) => {
-        const counts: Record<string, number> = {}
-        data?.forEach((term) => {
-          counts[term.discipline] = (counts[term.discipline] || 0) + 1
-        })
-        return { data: counts }
-      })
-
-    // Get recent activity (last 24 hours)
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-
-    const { data: recentTerms, error: recentError } = await supabase
-      .from("glossary_terms")
-      .select("*")
-      .gte("created_at", yesterday.toISOString())
-      .order("created_at", { ascending: false })
-
-    return {
-      success: true,
-      data: {
-        statusCounts: statusCounts || { pending: 0, approved: 0, total: 0 },
-        disciplineCounts: disciplineCounts || {},
-        recentActivity: recentTerms || [],
-        recentError: recentError?.message,
-      },
-    }
-  } catch (error) {
-    console.error("Error getting detailed database stats:", error)
-    return {
-      success: false,
-      message: "상세 통계 조회 중 오류가 발생했습니다.",
-      data: null,
-    }
-  }
-}
-
-// NEW: Enhanced debugging function specifically for General terms
-export async function debugGeneralTermsIssue() {
-  const supabase = createClient()
-
-  try {
-    console.log("DEBUG: debugGeneralTermsIssue - Starting comprehensive General terms debug")
-
-    // 1. Check all General terms with multiple possible discipline names
-    const possibleGeneralNames = ["프로젝트 일반 용어", "프로젝트일반용어", "일반용어", "General", "프로젝트 일반용어"]
-
-    const allGeneralTermsResults = []
-    for (const disciplineName of possibleGeneralNames) {
-      const { data: terms, error } = await supabase
-        .from("glossary_terms")
-        .select("*")
-        .eq("discipline", disciplineName)
-        .order("created_at", { ascending: false })
-
-      allGeneralTermsResults.push({
-        disciplineName,
-        count: terms?.length || 0,
-        terms: terms || [],
-        error: error?.message,
-      })
-
-      if (terms && terms.length > 0) {
-        console.log(`DEBUG: debugGeneralTermsIssue - Found ${terms.length} terms with discipline "${disciplineName}"`)
-        console.log(`DEBUG: debugGeneralTermsIssue - Sample terms:`, terms.slice(0, 3))
-      }
-    }
-
-    // 2. Get all unique discipline names to see what's actually in the database
-    const { data: allTerms, error: allTermsError } = await supabase.from("glossary_terms").select("discipline")
-
-    const uniqueDisciplines = [...new Set(allTerms?.map((term) => term.discipline) || [])]
-    console.log("DEBUG: debugGeneralTermsIssue - All unique disciplines:", uniqueDisciplines)
-
-    // 3. Check pending terms specifically
-    const { data: pendingTerms, error: pendingError } = await supabase
-      .from("glossary_terms")
-      .select("*")
-      .eq("status", "pending")
-
-    const pendingByDiscipline =
-      pendingTerms?.reduce(
-        (acc, term) => {
-          acc[term.discipline] = (acc[term.discipline] || 0) + 1
-          return acc
-        },
-        {} as Record<string, number>,
-      ) || {}
-
-    console.log("DEBUG: debugGeneralTermsIssue - Pending terms by discipline:", pendingByDiscipline)
-
-    // 4. Check RLS policies (this might fail on free tier)
-    const { data: policies, error: policyError } = await supabase
-      .from("pg_policies")
-      .select("*")
-      .eq("tablename", "glossary_terms")
-
-    console.log("DEBUG: debugGeneralTermsIssue - RLS policies:", policies)
-    console.log("DEBUG: debugGeneralTermsIssue - Policy error:", policyError)
-
-    // 5. Test a simple update on any pending term if available
-    let testUpdateResult = null
-    if (pendingTerms && pendingTerms.length > 0) {
-      const testTerm = pendingTerms[0]
-      console.log("DEBUG: debugGeneralTermsIssue - Testing update on term:", testTerm)
-
-      const { data: updateResult, error: updateError } = await supabase
-        .from("glossary_terms")
-        .update({ status: "approved" })
-        .eq("id", testTerm.id)
-        .select()
-
-      testUpdateResult = {
-        termId: testTerm.id,
-        termDiscipline: testTerm.discipline,
-        updateSuccess: !updateError,
-        updateResult: updateResult,
-        updateError: updateError?.message,
-      }
-
-      console.log("DEBUG: debugGeneralTermsIssue - Update test result:", testUpdateResult)
-
-      // Revert the test update
-      if (updateResult && updateResult.length > 0) {
-        await supabase.from("glossary_terms").update({ status: "pending" }).eq("id", testTerm.id)
-        console.log("DEBUG: debugGeneralTermsIssue - Reverted test update")
-      }
-    }
-
-    return {
-      success: true,
-      data: {
-        allGeneralTermsResults,
-        uniqueDisciplines,
-        pendingByDiscipline,
-        policies: policies || [],
-        testUpdateResult,
-        errors: {
-          allTermsError: allTermsError?.message,
-          pendingError: pendingError?.message,
-          policyError: policyError?.message,
-        },
-      },
-    }
-  } catch (error) {
-    console.error("DEBUG: debugGeneralTermsIssue - Unexpected error:", error)
-    return {
-      success: false,
-      message: "General 용어 디버깅 중 오류가 발생했습니다.",
-      data: null,
-    }
-  }
 }

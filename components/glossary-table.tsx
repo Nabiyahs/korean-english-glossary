@@ -174,34 +174,24 @@ export function GlossaryTable({
         const termsInDiscipline = glossary.filter((term) => term.discipline === discipline)
         const { koreanName, englishName, color } = disciplineMap[discipline]
 
-        // Debug log for General terms
-        if (discipline === "프로젝트 일반 용어") {
-          console.log("General terms found:", termsInDiscipline.length)
-          console.log("General terms:", termsInDiscipline)
-        }
-
-        // Always show the section, even if empty, for debugging
         return (
           <div key={discipline} id={`discipline-${discipline}`} ref={(el) => (disciplineRefs.current[discipline] = el)}>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 gap-2">
               <h2 className="text-lg sm:text-xl font-bold text-samoo-blue flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2">
                 <span>{koreanName}</span>
                 <span className="text-sm sm:text-base font-medium text-samoo-gray-medium">{englishName}</span>
-                <span className="text-xs text-samoo-gray-medium">({termsInDiscipline.length}개)</span>
               </h2>
-              {termsInDiscipline.length > 0 && (
-                <Button
-                  onClick={() => handleDownloadDiscipline(discipline)}
-                  size="sm"
-                  className={cn(
-                    "px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm rounded-md transition-colors flex items-center gap-1 self-start sm:self-auto",
-                    "bg-samoo-blue text-white hover:bg-samoo-blue-dark",
-                  )}
-                >
-                  <Download className="w-3 h-3 sm:w-4 sm:h-4" />
-                  Excel
-                </Button>
-              )}
+              <Button
+                onClick={() => handleDownloadDiscipline(discipline)}
+                size="sm"
+                className={cn(
+                  "px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm rounded-md transition-colors flex items-center gap-1 self-start sm:self-auto",
+                  "bg-samoo-blue text-white hover:bg-samoo-blue-dark",
+                )}
+              >
+                <Download className="w-3 h-3 sm:w-4 sm:h-4" />
+                Excel
+              </Button>
             </div>
             {renderTable(termsInDiscipline, discipline)}
           </div>

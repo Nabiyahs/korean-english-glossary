@@ -28,11 +28,7 @@ export default async function RootLayout({
               <Link href="/" className="flex items-center gap-2 font-bold text-lg text-samoo-blue">
                 한영 기술용어집
               </Link>
-              <div className="flex items-center gap-4">
-                <Link href="/admin" className="text-sm text-samoo-gray hover:text-samoo-blue transition-colors">
-                  관리자
-                </Link>
-              </div>
+              <div></div>
             </div>
           </header>
           <main>{children}</main>

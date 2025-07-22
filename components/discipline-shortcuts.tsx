@@ -26,10 +26,10 @@ interface DisciplineShortcutsProps {
 }
 
 const disciplineIcons: Record<Discipline, React.ElementType> = {
-  General: Briefcase, // ✅ fixed key
+  "프로젝트 일반 용어": Briefcase,
   Architecture: Building,
   Electrical: Zap,
-  Piping: Wrench,
+  Piping: Wrench, // Changed from PipetteIcon to Wrench (🔧)
   Civil: Mountain,
   "Instrument & Control": Gauge,
   "Fire Protection": FireExtinguisher,
