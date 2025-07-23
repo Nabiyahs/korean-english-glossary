@@ -27,6 +27,7 @@ import {
   Table,
   Clock,
   Edit,
+  Trash2,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -614,42 +615,79 @@ export default function AdminPage() {
                               <td className="p-3 text-xs text-samoo-gray-medium">{term.description || "설명 없음"}</td>
                               <td className="p-3 text-center">
                                 <div className="flex gap-1 justify-center">
-                                  <button
-                                    onClick={() => console.log(`Edit ${term.id}`)}
-                                    className="h-6 w-6 text-blue-500 hover:bg-blue-100 rounded flex items-center justify-center"
-                                    title="수정"
-                                  >
-                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                      />
-                                    </svg>
-                                  </button>
-                                  <button
+                                  <Dialog>
+                                    <DialogTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 text-blue-500 hover:bg-blue-100"
+                                        onClick={() => setEditingPendingTerm(term)}
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                        <span className="sr-only">용어 수정</span>
+                                      </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="sm:max-w-[600px]">
+                                      {editingPendingTerm && (
+                                        <EditTermForm
+                                          term={editingPendingTerm}
+                                          onSave={async (updates) => {
+                                            const result = await updateGlossaryTerm(editingPendingTerm.id, updates)
+                                            if (result.success) {
+                                              toast({ title: "성공", description: result.message })
+                                              // Update local state
+                                              setAllTerms((prev) =>
+                                                prev.map((t) =>
+                                                  t.id === editingPendingTerm.id
+                                                    ? {
+                                                        ...t,
+                                                        ...updates,
+                                                        abbreviation: updates.discipline
+                                                          ? disciplineMap[updates.discipline].abbreviation
+                                                          : t.abbreviation,
+                                                      }
+                                                    : t,
+                                                ),
+                                              )
+                                              setEditingPendingTerm(null)
+                                            } else {
+                                              toast({
+                                                title: "오류",
+                                                description: result.message,
+                                                variant: "destructive",
+                                              })
+                                            }
+                                          }}
+                                          onCancel={() => setEditingPendingTerm(null)}
+                                        />
+                                      )}
+                                    </DialogContent>
+                                  </Dialog>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-red-500 hover:bg-red-100"
                                     onClick={() => {
                                       if (confirm(`"${term.en}" 용어를 삭제하시겠습니까?`)) {
                                         deleteGlossaryTerm(term.id).then((result) => {
                                           if (result.success) {
+                                            toast({ title: "성공", description: result.message })
                                             fetchData()
+                                          } else {
+                                            toast({
+                                              title: "오류",
+                                              description: result.message,
+                                              variant: "destructive",
+                                            })
                                           }
                                         })
                                       }
                                     }}
-                                    className="h-6 w-6 text-red-500 hover:bg-red-100 rounded flex items-center justify-center"
                                     title="삭제"
                                   >
-                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                      />
-                                    </svg>
-                                  </button>
+                                    <Trash2 className="h-4 w-4" />
+                                    <span className="sr-only">용어 삭제</span>
+                                  </Button>
                                 </div>
                               </td>
                             </tr>
@@ -670,7 +708,10 @@ export default function AdminPage() {
                                 const disciplineTermIds = termsInDiscipline.map((t) => t.id)
                                 deleteMultipleTerms(disciplineTermIds).then((result) => {
                                   if (result.success) {
+                                    toast({ title: "성공", description: result.message })
                                     fetchData()
+                                  } else {
+                                    toast({ title: "오류", description: result.message, variant: "destructive" })
                                   }
                                 })
                               }
