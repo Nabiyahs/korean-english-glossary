@@ -20,8 +20,20 @@ import { DuplicateComparisonSection } from "@/components/duplicate-comparison-se
 import { DebugInfo } from "@/components/debug-info"
 import { DatabaseStats } from "@/components/database-stats"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { List, Table, Clock, Edit, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
+import {
+  List,
+  Table,
+  Clock,
+  Edit,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Search,
+  X,
+} from "lucide-react"
 import type { GlossaryTerm } from "@/lib/data"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
@@ -34,6 +46,8 @@ const ITEMS_PER_PAGE = 100
 export default function AdminPage() {
   const [pendingTerms, setPendingTerms] = useState<GlossaryTerm[]>([])
   const [allTerms, setAllTerms] = useState<GlossaryTerm[]>([])
+  const [filteredAllTerms, setFilteredAllTerms] = useState<GlossaryTerm[]>([])
+  const [searchTerm, setSearchTerm] = useState("")
   const [hasDuplicates, setHasDuplicates] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>("discipline")
@@ -55,6 +69,8 @@ export default function AdminPage() {
 
       setPendingTerms(sortedPending)
       setAllTerms(sortedAll)
+      // Apply search filter to all terms
+      applySearchFilter(sortedAll, searchTerm)
     } catch (error) {
       console.error("Error fetching data:", error)
       toast({
@@ -85,6 +101,29 @@ export default function AdminPage() {
     }
   }
 
+  const applySearchFilter = (terms: GlossaryTerm[], search: string) => {
+    if (!search.trim()) {
+      setFilteredAllTerms(terms)
+      return
+    }
+
+    const lowerCaseSearch = search.toLowerCase()
+    const filtered = terms.filter(
+      (term) =>
+        term.en.toLowerCase().includes(lowerCaseSearch) ||
+        term.kr.toLowerCase().includes(lowerCaseSearch) ||
+        term.description.toLowerCase().includes(lowerCaseSearch) ||
+        disciplineMap[term.discipline].abbreviation.toLowerCase().includes(lowerCaseSearch) ||
+        disciplineMap[term.discipline].koreanName.toLowerCase().includes(lowerCaseSearch),
+    )
+    setFilteredAllTerms(filtered)
+  }
+
+  const handleSearch = (value: string) => {
+    setSearchTerm(value)
+    applySearchFilter(allTerms, value)
+  }
+
   useEffect(() => {
     fetchData()
   }, [])
@@ -92,6 +131,11 @@ export default function AdminPage() {
   useEffect(() => {
     fetchData()
   }, [viewMode])
+
+  // Apply search filter when allTerms changes
+  useEffect(() => {
+    applySearchFilter(allTerms, searchTerm)
+  }, [allTerms, searchTerm])
 
   const handleDuplicatesChange = (duplicatesExist: boolean) => {
     setHasDuplicates(duplicatesExist)
@@ -457,17 +501,47 @@ export default function AdminPage() {
           </div>
         </div>
 
+        {/* Search Bar for All Terms */}
+        <div className="mb-6">
+          <div className="relative max-w-md">
+            <Input
+              type="text"
+              placeholder="전체 용어 검색..."
+              className="pl-10 pr-10"
+              value={searchTerm}
+              onChange={(e) => handleSearch(e.target.value)}
+            />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-samoo-gray-medium" />
+            {searchTerm && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
+                onClick={() => handleSearch("")}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          {searchTerm && (
+            <p className="text-sm text-samoo-gray-medium mt-2">
+              총 {allTerms.length}개 중 {filteredAllTerms.length}개 표시 (검색: "{searchTerm}")
+            </p>
+          )}
+        </div>
+
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
           <p className="text-blue-800 text-sm">
             💡 <strong>새로운 기능:</strong> 체크박스로 여러 용어를 선택하여 일괄 삭제하거나, 개별 용어를 수정할 수
-            있습니다. 연필 아이콘을 클릭하면 용어를 수정할 수 있습니다.
+            있습니다. 연필 아이콘을 클릭하면 용어를 수정할 수 있습니다. 검색 기능으로 원하는 용어를 빠르게 찾을 수
+            있습니다.
           </p>
         </div>
 
         {viewMode === "discipline" ? (
           <div className="space-y-8">
             {disciplines.map((discipline) => {
-              const termsInDiscipline = allTerms.filter((term) => term.discipline === discipline)
+              const termsInDiscipline = filteredAllTerms.filter((term) => term.discipline === discipline)
               const { koreanName, englishName } = disciplineMap[discipline]
 
               if (termsInDiscipline.length === 0) return null
@@ -615,7 +689,7 @@ export default function AdminPage() {
           </div>
         ) : (
           <AdminTermsTable
-            terms={allTerms}
+            terms={filteredAllTerms}
             onDeleteTerm={deleteGlossaryTerm}
             onDeleteMultiple={deleteMultipleTerms}
             onDeleteAll={deleteAllTerms}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { type GlossaryTerm, disciplineMap } from "@/lib/data"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -49,11 +49,6 @@ export function AdminTermsTable({
   const [currentPage, setCurrentPage] = useState(1)
   const { toast } = useToast()
 
-  // Update filtered terms when terms prop changes
-  useState(() => {
-    handleSearch(searchTerm)
-  })
-
   // Filter terms based on search
   const handleSearch = (value: string) => {
     setSearchTerm(value)
@@ -72,6 +67,14 @@ export function AdminTermsTable({
       setFilteredTerms(filtered)
     }
   }
+
+  // --- place this right below the handleSearch definition ---
+
+  // Re-apply search whenever the incoming `terms` prop changes
+  useEffect(() => {
+    handleSearch(searchTerm)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [terms])
 
   const handleDelete = async (id: string, termName: string) => {
     if (confirm(`"${termName}" 용어를 삭제하시겠습니까?`)) {

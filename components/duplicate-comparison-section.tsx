@@ -3,11 +3,13 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import { type GlossaryTerm, type Discipline, disciplineMap } from "@/lib/data"
-import { AlertTriangle, Check, Edit, Trash2, RefreshCw, X, Save } from "lucide-react"
+import { AlertTriangle, Check, Edit, Trash2, RefreshCw, X, Save, Eye } from "lucide-react"
 import { detectDuplicateTerms, approveGlossaryTerm, updateGlossaryTerm, rejectGlossaryTerm } from "@/app/actions"
 import type { DuplicatePair } from "@/app/actions"
 import { useToast } from "@/hooks/use-toast"
+import { EditTermForm } from "./edit-term-form"
 
 interface DuplicateComparisonSectionProps {
   onDuplicatesChange: (hasDuplicates: boolean) => void
@@ -23,6 +25,7 @@ export function DuplicateComparisonSection({ onDuplicatesChange }: DuplicateComp
     description: string
     discipline: Discipline
   } | null>(null)
+  const [viewingExistingTerm, setViewingExistingTerm] = useState<GlossaryTerm | null>(null)
   const { toast } = useToast()
 
   const disciplines = Object.keys(disciplineMap) as Discipline[]
@@ -98,6 +101,25 @@ export function DuplicateComparisonSection({ onDuplicatesChange }: DuplicateComp
   const handleCancelEdit = () => {
     setEditingId(null)
     setEditForm(null)
+  }
+
+  const handleViewExisting = (existingTerm: GlossaryTerm) => {
+    setViewingExistingTerm(existingTerm)
+  }
+
+  const handleUpdateExisting = async (
+    updates: Partial<Pick<GlossaryTerm, "en" | "kr" | "description" | "discipline">>,
+  ) => {
+    if (!viewingExistingTerm) return
+
+    const result = await updateGlossaryTerm(viewingExistingTerm.id, updates)
+    if (result.success) {
+      toast({ title: "성공", description: result.message })
+      setViewingExistingTerm(null)
+      await checkForDuplicates() // Refresh duplicates
+    } else {
+      toast({ title: "오류", description: result.message, variant: "destructive" })
+    }
   }
 
   if (isLoading) {
@@ -182,10 +204,32 @@ export function DuplicateComparisonSection({ onDuplicatesChange }: DuplicateComp
                 <span className="font-medium">{duplicate.pendingTerm.kr}</span>
                 <span className="text-gray-600 flex-1 truncate">{duplicate.pendingTerm.description || "설명없음"}</span>
                 <span className="text-gray-500">vs</span>
-                <span className="px-1 py-0.5 bg-gray-100 text-gray-800 rounded text-xs">
-                  {disciplineMap[duplicate.existingTerm.discipline].abbreviation}
-                </span>
-                <span className="text-gray-600">{duplicate.existingTerm.en}</span>
+
+                {/* Clickable existing term */}
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button
+                      onClick={() => handleViewExisting(duplicate.existingTerm)}
+                      className="flex items-center gap-1 px-1 py-0.5 bg-gray-100 text-gray-800 rounded text-xs hover:bg-gray-200 transition-colors"
+                      title="기존 용어 보기/수정"
+                    >
+                      <span>{disciplineMap[duplicate.existingTerm.discipline].abbreviation}</span>
+                      <Eye className="w-2.5 h-2.5" />
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[600px]">
+                    {viewingExistingTerm && (
+                      <EditTermForm
+                        term={viewingExistingTerm}
+                        onSave={handleUpdateExisting}
+                        onCancel={() => setViewingExistingTerm(null)}
+                      />
+                    )}
+                  </DialogContent>
+                </Dialog>
+
+                <span className="text-gray-600 truncate max-w-[100px]">{duplicate.existingTerm.en}</span>
+
                 <div className="flex gap-0.5 ml-2">
                   <Button
                     onClick={() => handleApprove(duplicate.pendingTerm)}
@@ -223,7 +267,10 @@ export function DuplicateComparisonSection({ onDuplicatesChange }: DuplicateComp
         ))}
       </div>
 
-      <p className="text-xs text-amber-700 mt-2">💡 중복 용어가 있어도 "모두 승인/거부" 사용 가능합니다.</p>
+      <p className="text-xs text-amber-700 mt-2">
+        💡 중복 용어가 있어도 "모두 승인/거부" 사용 가능합니다. 👁️ 아이콘을 클릭하여 기존 용어를 보거나 수정할 수
+        있습니다.
+      </p>
     </div>
   )
 }
