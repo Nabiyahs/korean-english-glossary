@@ -7,8 +7,10 @@ import { Toaster } from "@/components/ui/toaster"
 import Link from "next/link"
 
 const inter = Inter({ subsets: ["latin"] })
+// “Noto Sans KR” already contains the Korean glyphs.
+// Only the supported subset(s) need to be specified – “latin” is required, “korean” is **not** a valid subset for this font in Next 15.
 const notoSansKr = Noto_Sans_KR({
-  subsets: ["latin", "korean"],
+  subsets: ["latin"],
   weight: ["400", "500", "700", "900"],
   display: "swap",
 })
