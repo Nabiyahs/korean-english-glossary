@@ -67,9 +67,6 @@ const config: Config = {
           "button-hover": "#E0E0E0", // Even darker for inactive toggle hover
         },
         // Discipline-specific light colors for tables (removed 'dark' variants for buttons)
-        "discipline-general": {
-          DEFAULT: "#F8F8F8",
-        },
         "discipline-arch": {
           DEFAULT: "#E6F0FF", // Light blue
         },
@@ -96,6 +93,9 @@ const config: Config = {
         },
         "discipline-cell": {
           DEFAULT: "#FFD700", // Gold-like color for Cell/Battery
+        },
+        "discipline-general": {
+          DEFAULT: "#F5F5F5", // Light gray for General
         },
       },
       borderRadius: {

@@ -1,10 +1,10 @@
 "use client"
 
-import { useRef, useEffect } from "react"
+import { useRef, useEffect, useState } from "react"
 import { type GlossaryTerm, type Discipline, disciplineMap } from "@/lib/data"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
-import { Download } from "lucide-react"
+import { Download, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { downloadWorkbook, createBeautifulWorkbook } from "@/lib/xlsx-download"
 
@@ -17,7 +17,11 @@ interface GlossaryTableProps {
   highlightedTermId: string | null
   onDeleteTerm: (id: string) => Promise<void>
   isAdmin: boolean
+  selectedDiscipline: Discipline | null
+  onDisciplineChange: (discipline: Discipline | null) => void
 }
+
+const ITEMS_PER_PAGE = 100
 
 export function GlossaryTable({
   glossary,
@@ -28,10 +32,20 @@ export function GlossaryTable({
   highlightedTermId,
   onDeleteTerm,
   isAdmin,
+  selectedDiscipline,
+  onDisciplineChange,
 }: GlossaryTableProps) {
   const disciplineRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const [currentPage, setCurrentPage] = useState(1)
+  const [disciplineCurrentPage, setDisciplineCurrentPage] = useState(1)
 
   const disciplines = Object.keys(disciplineMap) as Discipline[]
+
+  // Reset to page 1 when view changes or discipline changes
+  useEffect(() => {
+    setCurrentPage(1)
+    setDisciplineCurrentPage(1)
+  }, [currentView, selectedDiscipline])
 
   const handleDownloadDiscipline = (discipline: Discipline) => {
     const termsToDownload = glossary.filter((term) => term.discipline === discipline)
@@ -120,7 +134,8 @@ export function GlossaryTable({
               if (currentView === "all") {
                 const prevTerm = terms[index - 1]
                 if (index === 0 || prevTerm.discipline !== term.discipline) {
-                  termIdForScroll = `term-discipline-${disciplineMap[term.discipline].abbreviation}`
+                  const abbreviation = disciplineMap[term.discipline]?.abbreviation || term.discipline || "unknown"
+                  termIdForScroll = `term-discipline-${abbreviation}`
                 }
               }
 
@@ -146,7 +161,7 @@ export function GlossaryTable({
                   {currentView === "all" && (
                     <td className="p-2 sm:p-3 text-xs sm:text-sm text-samoo-gray">
                       <span className="px-1 py-0.5 bg-samoo-blue/10 text-samoo-blue rounded text-xs">
-                        {disciplineMap[term.discipline].abbreviation}
+                        {disciplineMap[term.discipline]?.abbreviation || term.discipline || "Unknown"}
                       </span>
                     </td>
                   )}
@@ -164,39 +179,163 @@ export function GlossaryTable({
     </div>
   )
 
-  if (currentView === "all") {
-    return renderTable(glossary, undefined)
+  const renderPagination = (totalItems: number, currentPage: number, onPageChange: (page: number) => void) => {
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
+
+    if (totalPages <= 1) return null
+
+    const getVisiblePages = () => {
+      const delta = 2
+      const range = []
+      const rangeWithDots = []
+
+      for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
+        range.push(i)
+      }
+
+      if (currentPage - delta > 2) {
+        rangeWithDots.push(1, "...")
+      } else {
+        rangeWithDots.push(1)
+      }
+
+      rangeWithDots.push(...range)
+
+      if (currentPage + delta < totalPages - 1) {
+        rangeWithDots.push("...", totalPages)
+      } else {
+        rangeWithDots.push(totalPages)
+      }
+
+      return rangeWithDots
+    }
+
+    const visiblePages = getVisiblePages()
+
+    return (
+      <div className="flex items-center justify-center gap-2 mt-6 py-4">
+        {/* First page */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(1)}
+          disabled={currentPage === 1}
+          className="px-2 py-1 text-sm border-samoo-gray-medium hover:bg-samoo-blue hover:text-white disabled:opacity-50"
+        >
+          <ChevronsLeft className="w-4 h-4" />
+        </Button>
+
+        {/* Previous page */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+          disabled={currentPage === 1}
+          className="px-2 py-1 text-sm border-samoo-gray-medium hover:bg-samoo-blue hover:text-white disabled:opacity-50"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </Button>
+
+        {/* Page numbers */}
+        {visiblePages.map((page, index) => (
+          <Button
+            key={index}
+            variant={page === currentPage ? "default" : "outline"}
+            size="sm"
+            onClick={() => typeof page === "number" && onPageChange(page)}
+            disabled={page === "..."}
+            className={cn(
+              "px-3 py-1 text-sm min-w-[2rem]",
+              page === currentPage
+                ? "bg-samoo-blue text-white border-samoo-blue"
+                : "border-samoo-gray-medium hover:bg-samoo-blue hover:text-white",
+              page === "..." && "cursor-default hover:bg-transparent hover:text-current",
+            )}
+          >
+            {page}
+          </Button>
+        ))}
+
+        {/* Next page */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+          disabled={currentPage === totalPages}
+          className="px-2 py-1 text-sm border-samoo-gray-medium hover:bg-samoo-blue hover:text-white disabled:opacity-50"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </Button>
+
+        {/* Last page */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(totalPages)}
+          disabled={currentPage === totalPages}
+          className="px-2 py-1 text-sm border-samoo-gray-medium hover:bg-samoo-blue hover:text-white disabled:opacity-50"
+        >
+          <ChevronsRight className="w-4 h-4" />
+        </Button>
+
+        {/* Page info */}
+        <div className="ml-4 text-sm text-samoo-gray-medium">
+          {currentPage} / {totalPages} 페이지 (총 {totalItems}개)
+        </div>
+      </div>
+    )
   }
 
-  return (
-    <div className="space-y-6 sm:space-y-10">
-      {disciplines.map((discipline) => {
-        const termsInDiscipline = glossary.filter((term) => term.discipline === discipline)
-        const { koreanName, englishName, color } = disciplineMap[discipline]
+  if (currentView === "discipline") {
+    // Show only selected discipline or default to "General" with pagination
+    const displayDiscipline = selectedDiscipline || "General"
+    const termsInDiscipline = glossary.filter((term) => term.discipline === displayDiscipline)
+    const { koreanName, englishName, color } = disciplineMap[displayDiscipline]
 
-        return (
-          <div key={discipline} id={`discipline-${discipline}`} ref={(el) => (disciplineRefs.current[discipline] = el)}>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 gap-2">
-              <h2 className="text-lg sm:text-xl font-bold text-samoo-blue flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2">
-                <span>{koreanName}</span>
-                <span className="text-sm sm:text-base font-medium text-samoo-gray-medium">{englishName}</span>
-              </h2>
-              <Button
-                onClick={() => handleDownloadDiscipline(discipline)}
-                size="sm"
-                className={cn(
-                  "px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm rounded-md transition-colors flex items-center gap-1 self-start sm:self-auto",
-                  "bg-samoo-blue text-white hover:bg-samoo-blue-dark",
-                )}
-              >
-                <Download className="w-3 h-3 sm:w-4 sm:h-4" />
-                Excel
-              </Button>
-            </div>
-            {renderTable(termsInDiscipline, discipline)}
-          </div>
-        )
-      })}
+    // Pagination for discipline view
+    const totalDisciplineItems = termsInDiscipline.length
+    const disciplineStartIndex = (disciplineCurrentPage - 1) * ITEMS_PER_PAGE
+    const disciplineEndIndex = disciplineStartIndex + ITEMS_PER_PAGE
+    const paginatedDisciplineTerms = termsInDiscipline.slice(disciplineStartIndex, disciplineEndIndex)
+
+    return (
+      <div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 gap-2">
+          <h2 className="text-lg sm:text-xl font-bold text-samoo-blue flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2">
+            <span>{koreanName}</span>
+            <span className="text-sm sm:text-base font-medium text-samoo-gray-medium">{englishName}</span>
+            <span className="text-xs sm:text-sm font-normal text-samoo-gray-medium">
+              ({termsInDiscipline.length}개)
+            </span>
+          </h2>
+          <Button
+            onClick={() => handleDownloadDiscipline(displayDiscipline)}
+            size="sm"
+            className={cn(
+              "px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm rounded-md transition-colors flex items-center gap-1 self-start sm:self-auto",
+              "bg-samoo-blue text-white hover:bg-samoo-blue-dark",
+            )}
+          >
+            <Download className="w-3 h-3 sm:w-4 sm:h-4" />
+            Excel
+          </Button>
+        </div>
+        {renderTable(paginatedDisciplineTerms, displayDiscipline)}
+        {renderPagination(totalDisciplineItems, disciplineCurrentPage, setDisciplineCurrentPage)}
+      </div>
+    )
+  }
+
+  // "전체 보기" mode with pagination
+  const totalItems = glossary.length
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+  const endIndex = startIndex + ITEMS_PER_PAGE
+  const paginatedTerms = glossary.slice(startIndex, endIndex)
+
+  return (
+    <div>
+      {renderTable(paginatedTerms)}
+      {renderPagination(totalItems, currentPage, setCurrentPage)}
     </div>
   )
 }

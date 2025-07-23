@@ -14,15 +14,17 @@ import { HelpCircle } from "lucide-react"
 import { getGlossaryTerms, deleteGlossaryTerm, addGlossaryTerm } from "./actions"
 import { useToast } from "@/hooks/use-toast"
 import { formatEnglishTerm, formatKoreanTerm, formatDescription } from "@/lib/text-formatting"
+import { InternalFooter } from "@/components/internal-footer"
 
 export default function Home() {
   const [glossary, setGlossary] = useState<GlossaryTerm[]>([])
   const [currentView, setCurrentView] = useState<"discipline" | "all">("discipline")
   const [isVocabularyMode, setIsVocabularyMode] = useState(false)
-  const [selectedTerms, setSelectedTerms] = useState(new Set<string>()) // Fixed: use useState instead of direct assignment
+  const [selectedTerms, setSelectedTerms] = useState(new Set<string>())
   const [highlightedTermId, setHighlightedTermId] = useState<string | null>(null)
   const [isManualOpen, setIsManualOpen] = useState(false)
   const [activeDisciplineForScroll, setActiveDisciplineForScroll] = useState<Discipline | null>(null)
+  const [selectedDiscipline, setSelectedDiscipline] = useState<Discipline | null>("General") // Default to General
   const { toast } = useToast()
 
   useEffect(() => {
@@ -42,7 +44,7 @@ export default function Home() {
       }
     }
     fetchInitialData()
-  }, [toast]) // Add toast to dependencies
+  }, [toast])
 
   const sortGlossaryTermsForUsers = (terms: GlossaryTerm[]) => {
     // For regular users, just sort by discipline then English term
@@ -169,75 +171,89 @@ export default function Home() {
     setHighlightedTermId(id)
   }
 
+  const handleDisciplineSelect = (discipline: Discipline) => {
+    setSelectedDiscipline(discipline)
+  }
+
   const disciplines = Object.keys(disciplineMap) as Discipline[]
 
   return (
-    <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
-      {/* Mobile-optimized title section with relocated help button */}
-      <div className="mb-4 sm:mb-8 relative">
-        <div className="text-center mb-3 sm:mb-0">
-          <h1 className="text-xl sm:text-4xl font-bold sm:font-extrabold text-samoo-blue leading-tight tracking-tight">
-            English-Korean Technical Glossary
-            <br />
-            <span className="text-lg sm:text-3xl font-medium sm:font-semibold text-samoo-gray-medium mt-1 block">
-              한영 기술용어집
-            </span>
-          </h1>
-        </div>
-        {/* Help button - positioned in top right corner on desktop, centered below title on mobile */}
-        <div className="flex justify-center sm:absolute sm:top-0 sm:right-0">
-          <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
-            <DialogTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="px-2 py-1 text-xs sm:px-3 sm:py-2 sm:text-sm bg-white/80 backdrop-blur-sm text-samoo-blue hover:bg-samoo-blue/10 border-samoo-blue/30 shadow-sm"
-              >
-                <HelpCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                사용 설명서
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-              <UserManualContent />
-            </DialogContent>
-          </Dialog>
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <div className="flex-1 bg-white">
+        <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+          {/* Mobile-optimized title section with relocated help button */}
+          <div className="mb-4 sm:mb-8 relative">
+            <div className="text-center mb-3 sm:mb-0">
+              <h1 className="text-xl sm:text-4xl font-bold sm:font-extrabold text-samoo-blue leading-tight tracking-tight">
+                English-Korean Technical Glossary
+                <br />
+                <span className="text-lg sm:text-3xl font-medium sm:font-semibold text-samoo-gray-medium mt-1 block">
+                  한영 기술용어집
+                </span>
+              </h1>
+            </div>
+            {/* Help button - positioned in top right corner on desktop, centered below title on mobile */}
+            <div className="flex justify-center sm:absolute sm:top-0 sm:right-0">
+              <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="px-2 py-1 text-xs sm:px-3 sm:py-2 sm:text-sm bg-white/80 backdrop-blur-sm text-samoo-blue hover:bg-samoo-blue/10 border-samoo-blue/30 shadow-sm"
+                  >
+                    <HelpCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                    사용 설명서
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+                  <UserManualContent />
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
+
+          <DisclaimerContact />
+
+          <GlossaryHeader
+            glossary={glossary}
+            onViewChange={setCurrentView}
+            currentView={currentView}
+            onToggleVocabularyMode={setIsVocabularyMode}
+            isVocabularyMode={isVocabularyMode}
+            selectedTerms={selectedTerms}
+            onScrollToTerm={handleScrollToTerm}
+            onAddTerm={handleAddTerm}
+            onAddTermsFromText={handleAddTermsFromText}
+            existingGlossary={glossary}
+          />
+
+          <DisciplineShortcuts
+            disciplines={disciplines}
+            onScrollToDiscipline={handleScrollToDiscipline}
+            currentView={currentView}
+            activeDisciplineForScroll={activeDisciplineForScroll}
+            selectedDiscipline={selectedDiscipline}
+            onDisciplineSelect={handleDisciplineSelect}
+          />
+
+          <GlossaryTable
+            glossary={glossary}
+            currentView={currentView}
+            isVocabularyMode={isVocabularyMode}
+            selectedTerms={selectedTerms}
+            onToggleTermSelection={handleToggleTermSelection}
+            highlightedTermId={highlightedTermId}
+            onDeleteTerm={handleDeleteTerm}
+            isAdmin={false}
+            selectedDiscipline={selectedDiscipline}
+            onDisciplineChange={setSelectedDiscipline}
+          />
+
+          <ScrollToTopButton />
         </div>
       </div>
 
-      <DisclaimerContact />
-
-      <GlossaryHeader
-        glossary={glossary}
-        onViewChange={setCurrentView}
-        currentView={currentView}
-        onToggleVocabularyMode={setIsVocabularyMode}
-        isVocabularyMode={isVocabularyMode}
-        selectedTerms={selectedTerms}
-        onScrollToTerm={handleScrollToTerm}
-        onAddTerm={handleAddTerm}
-        onAddTermsFromText={handleAddTermsFromText}
-        existingGlossary={glossary}
-      />
-
-      <DisciplineShortcuts
-        disciplines={disciplines}
-        onScrollToDiscipline={handleScrollToDiscipline}
-        currentView={currentView}
-        activeDisciplineForScroll={activeDisciplineForScroll}
-      />
-
-      <GlossaryTable
-        glossary={glossary}
-        currentView={currentView}
-        isVocabularyMode={isVocabularyMode}
-        selectedTerms={selectedTerms}
-        onToggleTermSelection={handleToggleTermSelection}
-        highlightedTermId={highlightedTermId}
-        onDeleteTerm={handleDeleteTerm}
-        isAdmin={false} // Regular users are not admin
-      />
-
-      <ScrollToTopButton />
+      <InternalFooter />
     </div>
   )
 }

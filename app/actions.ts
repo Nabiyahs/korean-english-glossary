@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { type GlossaryTerm, disciplineMap } from "@/lib/data" // Import disciplineMap
+import { type GlossaryTerm, disciplineMap, type Discipline } from "@/lib/data" // Import disciplineMap
 import { formatEnglishTerm, formatKoreanTerm, formatDescription } from "@/lib/text-formatting"
 
 export async function signIn(email: string) {
@@ -75,24 +75,80 @@ export async function getGlossaryTerms(statusFilter?: "pending" | "approved", fo
       return []
     }
 
-    let query = supabase.from("glossary_terms").select("*")
+    // Get total count first to determine if we need pagination
+    let countQuery = supabase.from("glossary_terms").select("*", { count: "exact", head: true })
 
     if (!forAdmin && statusFilter) {
-      query = query.eq("status", statusFilter)
+      countQuery = countQuery.eq("status", statusFilter)
     } else if (!forAdmin) {
-      // Default for non-admins: only approved terms
-      query = query.eq("status", "approved")
+      countQuery = countQuery.eq("status", "approved")
     }
-    // If forAdmin is true, no status filter is applied, fetching all terms.
 
-    const { data, error } = await query.order("discipline", { ascending: true }).order("en", { ascending: true })
+    const { count, error: countError } = await countQuery
 
-    if (error) {
-      console.error("Error fetching glossary terms:", error)
+    if (countError) {
+      console.error("Error getting count:", countError)
       return []
     }
 
-    return (data ?? []) as GlossaryTerm[]
+    console.log(`Total terms in database: ${count}`)
+
+    // If we have more than 1000 terms, we need to fetch in batches
+    const allTerms: GlossaryTerm[] = []
+    const batchSize = 1000
+    let from = 0
+
+    while (from < (count || 0)) {
+      let query = supabase
+        .from("glossary_terms")
+        .select("*")
+        .range(from, from + batchSize - 1)
+        .order("discipline", { ascending: true })
+        .order("en", { ascending: true })
+
+      if (!forAdmin && statusFilter) {
+        query = query.eq("status", statusFilter)
+      } else if (!forAdmin) {
+        query = query.eq("status", "approved")
+      }
+
+      const { data, error } = await query
+
+      if (error) {
+        console.error(`Error fetching batch ${from}-${from + batchSize - 1}:`, error)
+        break
+      }
+
+      if (data) {
+        // Validate and clean the data before adding to results
+        const validatedData = (data as GlossaryTerm[]).map((term) => {
+          // Ensure discipline exists in disciplineMap, fallback to 'General' if not
+          if (!disciplineMap[term.discipline as Discipline]) {
+            console.warn(`Invalid discipline found: ${term.discipline} for term: ${term.en}. Defaulting to 'General'.`)
+            return {
+              ...term,
+              discipline: "General" as Discipline,
+              abbreviation: "Gen",
+            }
+          }
+          return term
+        })
+
+        allTerms.push(...validatedData)
+        console.log(`Fetched batch: ${from}-${from + batchSize - 1}, got ${data.length} terms`)
+      }
+
+      from += batchSize
+
+      // Safety break to prevent infinite loops
+      if (from > 10000) {
+        console.warn("Safety break: stopping at 10,000 terms")
+        break
+      }
+    }
+
+    console.log(`Total terms fetched: ${allTerms.length}`)
+    return allTerms
   } catch (err: any) {
     console.error("Unexpected error in getGlossaryTerms:", err)
     return []
@@ -183,16 +239,25 @@ export async function deleteGlossaryTerm(id: string) {
 export async function deleteMultipleTerms(ids: string[]) {
   const supabase = createClient()
 
-  const { error } = await supabase.from("glossary_terms").delete().in("id", ids)
+  // Delete in batches to avoid query limits
+  const batchSize = 100
+  let deletedCount = 0
 
-  if (error) {
-    console.error("Error deleting multiple terms:", error)
-    return { success: false, message: error.message }
+  for (let i = 0; i < ids.length; i += batchSize) {
+    const batch = ids.slice(i, i + batchSize)
+    const { error } = await supabase.from("glossary_terms").delete().in("id", batch)
+
+    if (error) {
+      console.error(`Error deleting batch ${i}-${i + batchSize}:`, error)
+      return { success: false, message: error.message }
+    }
+
+    deletedCount += batch.length
   }
 
   revalidatePath("/")
   revalidatePath("/admin")
-  return { success: true, message: `${ids.length}개의 용어가 성공적으로 삭제되었습니다.` }
+  return { success: true, message: `${deletedCount}개의 용어가 성공적으로 삭제되었습니다.` }
 }
 
 export async function deleteAllTerms() {
@@ -210,12 +275,25 @@ export async function deleteAllTerms() {
     return { success: false, message: "삭제할 용어가 없습니다." }
   }
 
-  // Delete all terms
-  const { error } = await supabase.from("glossary_terms").delete().neq("id", "00000000-0000-0000-0000-000000000000") // Delete all by using a condition that matches all
+  // Delete all terms in batches
+  const batchSize = 1000
+  let deletedCount = 0
 
-  if (error) {
-    console.error("Error deleting all terms:", error)
-    return { success: false, message: error.message }
+  while (deletedCount < count) {
+    const { data, error } = await supabase.from("glossary_terms").delete().limit(batchSize)
+
+    if (error) {
+      console.error("Error deleting batch:", error)
+      return { success: false, message: error.message }
+    }
+
+    deletedCount += batchSize
+
+    // Safety check
+    if (deletedCount > 10000) {
+      console.warn("Safety break: stopped deleting at 10,000 terms")
+      break
+    }
   }
 
   revalidatePath("/")
@@ -275,17 +353,27 @@ export async function approveAllTerms() {
     return { success: false, message: "승인할 대기 중인 용어가 없습니다." }
   }
 
-  // Update all pending terms to approved
-  const { error } = await supabase.from("glossary_terms").update({ status: "approved" }).eq("status", "pending")
+  // Update all pending terms to approved in batches
+  const batchSize = 100
+  let approvedCount = 0
 
-  if (error) {
-    console.error("Error approving all terms:", error)
-    return { success: false, message: error.message }
+  for (let i = 0; i < pendingTerms.length; i += batchSize) {
+    const batch = pendingTerms.slice(i, i + batchSize)
+    const batchIds = batch.map((term) => term.id)
+
+    const { error } = await supabase.from("glossary_terms").update({ status: "approved" }).in("id", batchIds)
+
+    if (error) {
+      console.error(`Error approving batch ${i}-${i + batchSize}:`, error)
+      return { success: false, message: error.message }
+    }
+
+    approvedCount += batch.length
   }
 
   revalidatePath("/")
   revalidatePath("/admin")
-  return { success: true, message: `${pendingTerms.length}개의 용어가 모두 승인되었습니다.` }
+  return { success: true, message: `${approvedCount}개의 용어가 모두 승인되었습니다.` }
 }
 
 export interface DuplicatePair {
@@ -301,27 +389,11 @@ export async function detectDuplicateTerms(): Promise<{
   const supabase = createClient()
 
   try {
-    // Get all pending terms
-    const { data: pendingTerms, error: pendingError } = await supabase
-      .from("glossary_terms")
-      .select("*")
-      .eq("status", "pending")
+    // Get all pending terms (with proper pagination)
+    const pendingTerms = await getGlossaryTerms("pending", false)
 
-    if (pendingError) {
-      console.error("Error fetching pending terms:", pendingError)
-      return { success: false, message: "대기 중인 용어를 가져오는 중 오류가 발생했습니다.", duplicates: [] }
-    }
-
-    // Get all approved terms
-    const { data: approvedTerms, error: approvedError } = await supabase
-      .from("glossary_terms")
-      .select("*")
-      .eq("status", "approved")
-
-    if (approvedError) {
-      console.error("Error fetching approved terms:", approvedError)
-      return { success: false, message: "승인된 용어를 가져오는 중 오류가 발생했습니다.", duplicates: [] }
-    }
+    // Get all approved terms (with proper pagination)
+    const approvedTerms = await getGlossaryTerms("approved", false)
 
     if (!pendingTerms || !approvedTerms) {
       return { success: true, message: "용어를 찾을 수 없습니다.", duplicates: [] }
@@ -374,15 +446,36 @@ export async function rejectAllTerms() {
     return { success: false, message: "거부할 대기 중인 용어가 없습니다." }
   }
 
-  // Delete all pending terms
-  const { error } = await supabase.from("glossary_terms").delete().eq("status", "pending")
+  // Delete all pending terms in batches
+  const batchSize = 100
+  let rejectedCount = 0
 
-  if (error) {
-    console.error("Error rejecting all terms:", error)
-    return { success: false, message: error.message }
+  for (let i = 0; i < pendingTerms.length; i += batchSize) {
+    const batch = pendingTerms.slice(i, i + batchSize)
+    const batchIds = batch.map((term) => term.id)
+
+    const { error } = await supabase.from("glossary_terms").delete().in("id", batchIds)
+
+    if (error) {
+      console.error(`Error rejecting batch ${i}-${i + batchSize}:`, error)
+      return { success: false, message: error.message }
+    }
+
+    rejectedCount += batch.length
   }
 
   revalidatePath("/admin")
   revalidatePath("/")
-  return { success: true, message: `${pendingTerms.length}개의 용어가 모두 거부되었습니다.` }
+  return { success: true, message: `${rejectedCount}개의 용어가 모두 거부되었습니다.` }
+}
+
+export interface DuplicateInfo {
+  pendingTerm: GlossaryTerm
+  existingTerm: GlossaryTerm
+  differences: {
+    en: boolean
+    kr: boolean
+    description: boolean
+    discipline: boolean
+  }
 }

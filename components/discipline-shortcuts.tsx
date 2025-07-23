@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { type Discipline, disciplineMap } from "@/lib/data"
 import { cn } from "@/lib/utils"
 import {
-  Briefcase,
+  FileText,
   Building,
   Zap,
   Wrench,
@@ -23,13 +23,15 @@ interface DisciplineShortcutsProps {
   onScrollToDiscipline: (discipline: Discipline) => void
   currentView: "discipline" | "all"
   activeDisciplineForScroll: Discipline | null
+  selectedDiscipline: Discipline | null
+  onDisciplineSelect: (discipline: Discipline) => void
 }
 
 const disciplineIcons: Record<Discipline, React.ElementType> = {
-  "프로젝트 일반 용어": Briefcase,
+  General: FileText, // Changed to FileText for document/office context
   Architecture: Building,
   Electrical: Zap,
-  Piping: Wrench, // Changed from PipetteIcon to Wrench (🔧)
+  Piping: Wrench,
   Civil: Mountain,
   "Instrument & Control": Gauge,
   "Fire Protection": FireExtinguisher,
@@ -43,16 +45,30 @@ export function DisciplineShortcuts({
   onScrollToDiscipline,
   currentView,
   activeDisciplineForScroll,
+  selectedDiscipline,
+  onDisciplineSelect,
 }: DisciplineShortcutsProps) {
   const handleDisciplineClick = (discipline: Discipline) => {
-    // Toggle functionality: if already active, deactivate it
-    if (activeDisciplineForScroll === discipline) {
-      // Scroll to top of page to "unselect"
-      window.scrollTo({ top: 0, behavior: "smooth" })
-      // The parent component should handle setting activeDisciplineForScroll to null
-      onScrollToDiscipline(discipline) // This will trigger the parent to handle the toggle
+    if (currentView === "discipline") {
+      // In discipline view, select the discipline to display
+      onDisciplineSelect(discipline)
     } else {
-      onScrollToDiscipline(discipline)
+      // In all view, scroll to discipline
+      if (activeDisciplineForScroll === discipline) {
+        window.scrollTo({ top: 0, behavior: "smooth" })
+        onScrollToDiscipline(discipline)
+      } else {
+        const abbreviation = disciplineMap[discipline]?.abbreviation || discipline
+        onScrollToDiscipline(discipline)
+      }
+    }
+  }
+
+  const getActiveState = (discipline: Discipline) => {
+    if (currentView === "discipline") {
+      return selectedDiscipline === discipline
+    } else {
+      return activeDisciplineForScroll === discipline
     }
   }
 
@@ -64,7 +80,7 @@ export function DisciplineShortcuts({
           {disciplines.map((discipline) => {
             const Icon = disciplineIcons[discipline]
             const koreanName = disciplineMap[discipline].koreanName
-            const isActive = activeDisciplineForScroll === discipline
+            const isActive = getActiveState(discipline)
 
             return (
               <Button
@@ -90,7 +106,7 @@ export function DisciplineShortcuts({
         {disciplines.map((discipline) => {
           const Icon = disciplineIcons[discipline]
           const koreanName = disciplineMap[discipline].koreanName
-          const isActive = activeDisciplineForScroll === discipline
+          const isActive = getActiveState(discipline)
 
           return (
             <Button

@@ -215,7 +215,7 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
               : [
                   "파일 형식을 확인해주세요.",
                   "각 줄은 '공종약어;영어;한국어;설명' 형식이어야 합니다.",
-                  "예: Gen;Project Management;프로젝트 관리;프로젝트 전반 관리",
+                  "예: Gen;Project Management;프로젝트 전반 관리",
                 ],
         })
         return
@@ -293,7 +293,6 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
       "# 5. 세미콜론(;)으로 구분합니다",
       "",
       "# 🏷️ 공종 약어 목록:",
-      "# Gen = 프로젝트 일반 용어",
       "# Arch = Architecture (건축)",
       "# Elec = Electrical (전기)",
       "# Piping = Piping (배관)",
@@ -305,7 +304,6 @@ export function TermInputForm({ onAddTerm, onAddTermsFromText, onClose, existing
       "# Cell = Cell (배터리)",
       "",
       "# ✅ 올바른 형식 예시:",
-      "# Gen;Project Management;프로젝트 관리;프로젝트 전반적인 관리 업무",
       "# Arch;Floor Plan;평면도;건물의 각 층별 공간 배치를 나타낸 도면",
       "# Elec;Circuit Breaker;차단기;전기 회로의 과부하나 단락을 차단하는 보호 장치",
       "# Piping;Pipeline;배관;유체를 운반하는 관로 시스템",

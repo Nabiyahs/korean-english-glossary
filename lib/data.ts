@@ -1,5 +1,5 @@
 export type Discipline =
-  | "프로젝트 일반 용어"
+  | "General"
   | "Architecture"
   | "Electrical"
   | "Piping"
@@ -26,7 +26,7 @@ export const disciplineMap: Record<
   Discipline,
   { abbreviation: string; color: string; koreanName: string; englishName: string }
 > = {
-  "프로젝트 일반 용어": {
+  General: {
     abbreviation: "Gen",
     color: "bg-discipline-general",
     koreanName: "일반",
@@ -90,7 +90,7 @@ export const disciplineMap: Record<
 
 // A fixed order used for consistent sorting throughout the app
 export const disciplineOrder: Discipline[] = [
-  "프로젝트 일반 용어",
+  "General",
   "Architecture",
   "Electrical",
   "Piping",

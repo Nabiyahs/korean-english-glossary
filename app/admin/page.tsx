@@ -18,15 +18,18 @@ import { AdminBulkActions } from "@/components/admin-bulk-actions"
 import { AdminTermsTable } from "@/components/admin-terms-table"
 import { DuplicateComparisonSection } from "@/components/duplicate-comparison-section"
 import { DebugInfo } from "@/components/debug-info"
+import { DatabaseStats } from "@/components/database-stats"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { List, Table, Clock, Edit } from "lucide-react"
+import { List, Table, Clock, Edit, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
 import type { GlossaryTerm } from "@/lib/data"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import { EditTermForm } from "@/components/edit-term-form"
 
 type ViewMode = "discipline" | "date" | "all"
+
+const ITEMS_PER_PAGE = 100
 
 export default function AdminPage() {
   const [pendingTerms, setPendingTerms] = useState<GlossaryTerm[]>([])
@@ -35,12 +38,16 @@ export default function AdminPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>("discipline")
   const [editingPendingTerm, setEditingPendingTerm] = useState<GlossaryTerm | null>(null)
+  const [pendingCurrentPage, setPendingCurrentPage] = useState(1)
   const { toast } = useToast()
 
   const fetchData = async () => {
     setIsLoading(true)
     try {
+      console.log("Fetching data with improved pagination...")
       const [pending, all] = await Promise.all([getGlossaryTerms("pending"), getGlossaryTerms(undefined, true)])
+
+      console.log(`Fetched ${pending.length} pending terms and ${all.length} total terms`)
 
       // Apply sorting based on viewMode
       const sortedPending = sortTermsByMode(pending, viewMode)
@@ -50,6 +57,11 @@ export default function AdminPage() {
       setAllTerms(sortedAll)
     } catch (error) {
       console.error("Error fetching data:", error)
+      toast({
+        title: "데이터 로딩 오류",
+        description: "데이터를 불러오는 중 오류가 발생했습니다.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -130,6 +142,121 @@ export default function AdminPage() {
 
   const disciplines = Object.keys(disciplineMap) as Discipline[]
 
+  // Pagination for pending terms
+  const totalPendingPages = Math.ceil(pendingTerms.length / ITEMS_PER_PAGE)
+  const pendingStartIndex = (pendingCurrentPage - 1) * ITEMS_PER_PAGE
+  const pendingEndIndex = pendingStartIndex + ITEMS_PER_PAGE
+  const paginatedPendingTerms = pendingTerms.slice(pendingStartIndex, pendingEndIndex)
+
+  const renderPendingPagination = () => {
+    if (totalPendingPages <= 1) return null
+
+    const getVisiblePages = () => {
+      const delta = 2
+      const range = []
+      const rangeWithDots = []
+
+      for (
+        let i = Math.max(2, pendingCurrentPage - delta);
+        i <= Math.min(totalPendingPages - 1, pendingCurrentPage + delta);
+        i++
+      ) {
+        range.push(i)
+      }
+
+      if (pendingCurrentPage - delta > 2) {
+        rangeWithDots.push(1, "...")
+      } else {
+        rangeWithDots.push(1)
+      }
+
+      rangeWithDots.push(...range)
+
+      if (pendingCurrentPage + delta < totalPendingPages - 1) {
+        rangeWithDots.push("...", totalPendingPages)
+      } else {
+        rangeWithDots.push(totalPendingPages)
+      }
+
+      return rangeWithDots
+    }
+
+    const visiblePages = getVisiblePages()
+
+    return (
+      <div className="flex items-center justify-center gap-2 mt-4 py-4">
+        {/* First page */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setPendingCurrentPage(1)}
+          disabled={pendingCurrentPage === 1}
+          className="px-2 py-1 text-sm border-samoo-gray-medium hover:bg-samoo-blue hover:text-white disabled:opacity-50"
+        >
+          <ChevronsLeft className="w-4 h-4" />
+        </Button>
+
+        {/* Previous page */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setPendingCurrentPage(Math.max(1, pendingCurrentPage - 1))}
+          disabled={pendingCurrentPage === 1}
+          className="px-2 py-1 text-sm border-samoo-gray-medium hover:bg-samoo-blue hover:text-white disabled:opacity-50"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </Button>
+
+        {/* Page numbers */}
+        {visiblePages.map((page, index) => (
+          <Button
+            key={index}
+            variant={page === pendingCurrentPage ? "default" : "outline"}
+            size="sm"
+            onClick={() => typeof page === "number" && setPendingCurrentPage(page)}
+            disabled={page === "..."}
+            className={cn(
+              "px-3 py-1 text-sm min-w-[2rem]",
+              page === pendingCurrentPage
+                ? "bg-samoo-blue text-white border-samoo-blue"
+                : "border-samoo-gray-medium hover:bg-samoo-blue hover:text-white",
+              page === "..." && "cursor-default hover:bg-transparent hover:text-current",
+            )}
+          >
+            {page}
+          </Button>
+        ))}
+
+        {/* Next page */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setPendingCurrentPage(Math.min(totalPendingPages, pendingCurrentPage + 1))}
+          disabled={pendingCurrentPage === totalPendingPages}
+          className="px-2 py-1 text-sm border-samoo-gray-medium hover:bg-samoo-blue hover:text-white disabled:opacity-50"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </Button>
+
+        {/* Last page */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setPendingCurrentPage(totalPendingPages)}
+          disabled={pendingCurrentPage === totalPendingPages}
+          className="px-2 py-1 text-sm border-samoo-gray-medium hover:bg-samoo-blue hover:text-white disabled:opacity-50"
+        >
+          <ChevronsRight className="w-4 h-4" />
+        </Button>
+
+        {/* Page info */}
+        <div className="ml-4 text-sm text-samoo-gray-medium">
+          {pendingCurrentPage} / {totalPendingPages} 페이지 (총 {pendingTerms.length}개)
+        </div>
+      </div>
+    )
+  }
+
   const renderPendingTermsTable = (terms: GlossaryTerm[], discipline?: Discipline) => (
     <div className="rounded-lg border border-samoo-gray-light shadow-sm bg-white">
       <div className="max-h-[70vh] overflow-y-auto">
@@ -137,7 +264,7 @@ export default function AdminPage() {
           <thead className="sticky top-0 bg-yellow-50 z-10">
             <tr className="border-b-2 border-yellow-200">
               <th className="p-4 text-sm font-semibold text-samoo-gray">
-                #<span className="text-xs font-normal text-samoo-gray-medium ml-1">(총 {terms.length}개)</span>
+                #<span className="text-xs font-normal text-samoo-gray-medium ml-1">(총 {pendingTerms.length}개)</span>
               </th>
               <th className="p-4 text-sm font-semibold text-samoo-gray">공종</th>
               <th className="p-4 text-sm font-semibold text-samoo-gray">English</th>
@@ -156,7 +283,7 @@ export default function AdminPage() {
                 }`}
                 style={{ backgroundColor: discipline ? disciplineMap[discipline].color : undefined }}
               >
-                <td className="p-4 text-sm text-samoo-gray-medium font-mono">{index + 1}</td>
+                <td className="p-4 text-sm text-samoo-gray-medium font-mono">{pendingStartIndex + index + 1}</td>
                 <td className="p-4 text-sm">
                   <span className="px-2 py-1 bg-samoo-blue/10 text-samoo-blue rounded text-xs font-medium">
                     {disciplineMap[term.discipline].abbreviation}
@@ -212,14 +339,6 @@ export default function AdminPage() {
           </tbody>
         </table>
       </div>
-
-      {/* Footer with total count */}
-      <div className="bg-gray-50 border-t border-samoo-gray-light px-4 py-3">
-        <div className="flex justify-between items-center text-sm text-samoo-gray-medium">
-          <span>총 {terms.length}개의 용어가 승인을 기다리고 있습니다.</span>
-          <span>💡 "모두 승인/거부" 버튼으로 전체 {terms.length}개를 일괄 처리할 수 있습니다.</span>
-        </div>
-      </div>
     </div>
   )
 
@@ -239,6 +358,9 @@ export default function AdminPage() {
         <h1 className="text-3xl font-bold text-samoo-blue mb-2">관리자 페이지</h1>
         <p className="text-samoo-gray-medium">이 페이지에서 용어를 승인하거나 삭제할 수 있습니다.</p>
       </div>
+
+      {/* Database Stats - New component to show pagination info */}
+      <DatabaseStats />
 
       {/* Debug Info - Admin Only */}
       <DebugInfo />
@@ -285,8 +407,9 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* Always show as single table for pending terms */}
-            {renderPendingTermsTable(pendingTerms)}
+            {/* Pending terms table with pagination */}
+            {renderPendingTermsTable(paginatedPendingTerms)}
+            {renderPendingPagination()}
           </>
         )}
       </section>

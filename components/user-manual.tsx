@@ -1,86 +1,85 @@
 import { DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { Search, List, BookOpen, Plus } from "lucide-react"
+import { Search, List, Table, BookOpen, Plus, Download, Upload, MousePointer, CheckCircle } from "lucide-react"
 
 export function UserManualContent() {
   return (
     <div className="p-4">
-      <DialogTitle className="text-2xl font-bold text-samoo-blue mb-4">사용 설명서</DialogTitle>
-      <DialogDescription className="text-samoo-gray-medium mb-6">
-        한영 기술용어집의 주요 기능을 간략하게 안내해 드립니다.
+      <DialogTitle className="text-xl font-bold text-samoo-blue mb-2">사용 설명서</DialogTitle>
+      <DialogDescription className="text-sm text-samoo-gray-medium mb-6">
+        주요 기능을 간단히 안내합니다.
       </DialogDescription>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="bg-samoo-gray-light/50 p-4 rounded-lg border border-samoo-gray-light">
-          <h3 className="text-lg font-semibold text-samoo-blue mb-3 flex items-center">
-            <Search className="w-5 h-5 mr-2" /> 용어 검색
-          </h3>
-          <div className="space-y-2 mt-2">
-            <div className="flex items-start gap-2 text-sm text-samoo-gray">
-              <div className="w-1.5 h-1.5 bg-samoo-blue rounded-full mt-1.5 flex-shrink-0" />
-              <span>상단 검색창에 영어, 한국어, 또는 설명의 일부를 입력하여 용어를 검색합니다.</span>
-            </div>
-            <div className="flex items-start gap-2 text-sm text-samoo-gray">
-              <div className="w-1.5 h-1.5 bg-samoo-blue rounded-full mt-1.5 flex-shrink-0" />
-              <span>검색 결과를 클릭하면 해당 용어가 표에서 강조됩니다.</span>
+      <div className="space-y-4">
+        {/* Search */}
+        <div className="flex items-start gap-3 p-3 bg-samoo-gray-light/30 rounded-lg border border-samoo-gray-light">
+          <div className="w-8 h-8 bg-samoo-blue rounded-lg flex items-center justify-center flex-shrink-0">
+            <Search className="w-4 h-4 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-samoo-blue text-sm mb-1">용어 검색</h3>
+            <div className="flex items-center gap-2 text-xs text-samoo-gray">
+              <span>검색창에 입력</span>
+              <MousePointer className="w-3 h-3 text-samoo-gray-medium" />
+              <span>결과 클릭하여 이동</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-samoo-gray-light/50 p-4 rounded-lg border border-samoo-gray-light">
-          <h3 className="text-lg font-semibold text-samoo-blue mb-3 flex items-center">
-            <List className="w-5 h-5 mr-2" /> 보기 모드
-          </h3>
-          <div className="space-y-2 mt-2">
-            <div className="flex items-start gap-2 text-sm text-samoo-gray">
-              <div className="w-1.5 h-1.5 bg-samoo-blue rounded-full mt-1.5 flex-shrink-0" />
-              <span>
-                <span className="font-medium">공종별:</span> 용어를 공종별로 분류하여 표시
-              </span>
-            </div>
-            <div className="flex items-start gap-2 text-sm text-samoo-gray">
-              <div className="w-1.5 h-1.5 bg-samoo-blue rounded-full mt-1.5 flex-shrink-0" />
-              <span>
-                <span className="font-medium">전체:</span> 모든 용어를 하나의 표에 표시
-              </span>
+        {/* View Modes */}
+        <div className="flex items-start gap-3 p-3 bg-samoo-gray-light/30 rounded-lg border border-samoo-gray-light">
+          <div className="w-8 h-8 bg-samoo-blue rounded-lg flex items-center justify-center flex-shrink-0">
+            <List className="w-4 h-4 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-samoo-blue text-sm mb-2">보기 모드</h3>
+            <div className="flex gap-2">
+              <div className="flex items-center gap-1 text-xs text-samoo-gray bg-white px-2 py-1 rounded border border-samoo-gray-medium/30">
+                <List className="w-3 h-3 text-samoo-blue" />
+                <span>공종별</span>
+              </div>
+              <div className="flex items-center gap-1 text-xs text-samoo-gray bg-white px-2 py-1 rounded border border-samoo-gray-medium/30">
+                <Table className="w-3 h-3 text-samoo-blue" />
+                <span>전체</span>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-samoo-gray-light/50 p-4 rounded-lg border border-samoo-gray-light">
-          <h3 className="text-lg font-semibold text-samoo-blue mb-3 flex items-center">
-            <BookOpen className="w-5 h-5 mr-2" /> 단어장 생성
-          </h3>
-          <div className="space-y-2 mt-2">
-            <div className="flex items-start gap-2 text-sm text-samoo-gray">
-              <div className="w-1.5 h-1.5 bg-samoo-blue rounded-full mt-1.5 flex-shrink-0" />
-              <span>
-                "단어장 생성" 토글을 켜면 체크박스가 나타나며, 원하는 용어를 선택하여 Excel로 다운로드할 수 있습니다.
-              </span>
-            </div>
-            <div className="flex items-start gap-2 text-sm text-samoo-gray">
-              <div className="w-1.5 h-1.5 bg-samoo-blue rounded-full mt-1.5 flex-shrink-0" />
-              <span>공종별 보기에서는 각 공종의 "Excel" 버튼으로 해당 공종 전체를 다운로드할 수 있습니다.</span>
+        {/* Vocabulary Mode */}
+        <div className="flex items-start gap-3 p-3 bg-samoo-gray-light/30 rounded-lg border border-samoo-gray-light">
+          <div className="w-8 h-8 bg-samoo-blue rounded-lg flex items-center justify-center flex-shrink-0">
+            <BookOpen className="w-4 h-4 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-samoo-blue text-sm mb-2">단어장 생성</h3>
+            <div className="flex items-center gap-2 text-xs text-samoo-gray">
+              <span>토글 ON</span>
+              <CheckCircle className="w-3 h-3 text-samoo-blue" />
+              <span>용어 선택</span>
+              <Download className="w-3 h-3 text-samoo-blue" />
+              <span>Excel 다운로드</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-samoo-gray-light/50 p-4 rounded-lg border border-samoo-gray-light">
-          <h3 className="text-lg font-semibold text-samoo-blue mb-3 flex items-center">
-            <Plus className="w-5 h-5 mr-2" /> 용어 추가
-          </h3>
-          <div className="space-y-2 mt-2">
-            <div className="flex items-start gap-2 text-sm text-samoo-gray">
-              <div className="w-1.5 h-1.5 bg-samoo-blue rounded-full mt-1.5 flex-shrink-0" />
-              <span>
-                <span className="font-medium">직접 입력:</span> 영어, 한국어, 공종을 선택하여 개별 용어 추가
-              </span>
+        {/* Add Terms */}
+        <div className="flex items-start gap-3 p-3 bg-samoo-gray-light/30 rounded-lg border border-samoo-gray-light">
+          <div className="w-8 h-8 bg-samoo-blue rounded-lg flex items-center justify-center flex-shrink-0">
+            <Plus className="w-4 h-4 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-samoo-blue text-sm mb-2">용어 추가</h3>
+            <div className="flex gap-2 mb-2">
+              <div className="flex items-center gap-1 text-xs text-samoo-gray bg-white px-2 py-1 rounded border border-samoo-gray-medium/30">
+                <Plus className="w-3 h-3 text-samoo-blue" />
+                <span>직접 입력</span>
+              </div>
+              <div className="flex items-center gap-1 text-xs text-samoo-gray bg-white px-2 py-1 rounded border border-samoo-gray-medium/30">
+                <Upload className="w-3 h-3 text-samoo-blue" />
+                <span>파일 업로드</span>
+              </div>
             </div>
-            <div className="flex items-start gap-2 text-sm text-samoo-gray">
-              <div className="w-1.5 h-1.5 bg-samoo-blue rounded-full mt-1.5 flex-shrink-0" />
-              <span>
-                <span className="font-medium">파일 업로드:</span> 템플릿을 다운로드하여 여러 용어를 한 번에 추가
-              </span>
-            </div>
+            <div className="text-xs text-samoo-gray font-medium">💡 관리자 승인 후 표시</div>
           </div>
         </div>
       </div>

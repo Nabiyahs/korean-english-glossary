@@ -6,9 +6,21 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
-import { Trash2, Search, X, Edit, Trash, CheckSquare } from "lucide-react"
+import {
+  Trash2,
+  Search,
+  X,
+  Edit,
+  Trash,
+  CheckSquare,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { EditTermForm } from "./edit-term-form"
+import { cn } from "@/lib/utils"
 
 interface AdminTermsTableProps {
   terms: GlossaryTerm[]
@@ -21,6 +33,8 @@ interface AdminTermsTableProps {
   ) => Promise<{ success: boolean; message: string }>
 }
 
+const ITEMS_PER_PAGE = 100
+
 export function AdminTermsTable({
   terms,
   onDeleteTerm,
@@ -32,11 +46,18 @@ export function AdminTermsTable({
   const [filteredTerms, setFilteredTerms] = useState(terms)
   const [selectedTerms, setSelectedTerms] = useState<Set<string>>(new Set())
   const [editingTerm, setEditingTerm] = useState<GlossaryTerm | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
   const { toast } = useToast()
+
+  // Update filtered terms when terms prop changes
+  useState(() => {
+    handleSearch(searchTerm)
+  })
 
   // Filter terms based on search
   const handleSearch = (value: string) => {
     setSearchTerm(value)
+    setCurrentPage(1) // Reset to first page when searching
     if (value.trim() === "") {
       setFilteredTerms(terms)
     } else {
@@ -109,7 +130,7 @@ export function AdminTermsTable({
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedTerms(new Set(filteredTerms.map((term) => term.id)))
+      setSelectedTerms(new Set(paginatedTerms.map((term) => term.id)))
     } else {
       setSelectedTerms(new Set())
     }
@@ -151,8 +172,120 @@ export function AdminTermsTable({
     }
   }
 
-  const isAllSelected = filteredTerms.length > 0 && filteredTerms.every((term) => selectedTerms.has(term.id))
-  const isSomeSelected = filteredTerms.some((term) => selectedTerms.has(term.id))
+  // Pagination logic
+  const totalItems = filteredTerms.length
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+  const endIndex = startIndex + ITEMS_PER_PAGE
+  const paginatedTerms = filteredTerms.slice(startIndex, endIndex)
+
+  const renderPagination = () => {
+    if (totalPages <= 1) return null
+
+    const getVisiblePages = () => {
+      const delta = 2
+      const range = []
+      const rangeWithDots = []
+
+      for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
+        range.push(i)
+      }
+
+      if (currentPage - delta > 2) {
+        rangeWithDots.push(1, "...")
+      } else {
+        rangeWithDots.push(1)
+      }
+
+      rangeWithDots.push(...range)
+
+      if (currentPage + delta < totalPages - 1) {
+        rangeWithDots.push("...", totalPages)
+      } else {
+        rangeWithDots.push(totalPages)
+      }
+
+      return rangeWithDots
+    }
+
+    const visiblePages = getVisiblePages()
+
+    return (
+      <div className="flex items-center justify-center gap-2 mt-6 py-4">
+        {/* First page */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCurrentPage(1)}
+          disabled={currentPage === 1}
+          className="px-2 py-1 text-sm border-samoo-gray-medium hover:bg-samoo-blue hover:text-white disabled:opacity-50"
+        >
+          <ChevronsLeft className="w-4 h-4" />
+        </Button>
+
+        {/* Previous page */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+          disabled={currentPage === 1}
+          className="px-2 py-1 text-sm border-samoo-gray-medium hover:bg-samoo-blue hover:text-white disabled:opacity-50"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </Button>
+
+        {/* Page numbers */}
+        {visiblePages.map((page, index) => (
+          <Button
+            key={index}
+            variant={page === currentPage ? "default" : "outline"}
+            size="sm"
+            onClick={() => typeof page === "number" && setCurrentPage(page)}
+            disabled={page === "..."}
+            className={cn(
+              "px-3 py-1 text-sm min-w-[2rem]",
+              page === currentPage
+                ? "bg-samoo-blue text-white border-samoo-blue"
+                : "border-samoo-gray-medium hover:bg-samoo-blue hover:text-white",
+              page === "..." && "cursor-default hover:bg-transparent hover:text-current",
+            )}
+          >
+            {page}
+          </Button>
+        ))}
+
+        {/* Next page */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+          disabled={currentPage === totalPages}
+          className="px-2 py-1 text-sm border-samoo-gray-medium hover:bg-samoo-blue hover:text-white disabled:opacity-50"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </Button>
+
+        {/* Last page */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCurrentPage(totalPages)}
+          disabled={currentPage === totalPages}
+          className="px-2 py-1 text-sm border-samoo-gray-medium hover:bg-samoo-blue hover:text-white disabled:opacity-50"
+        >
+          <ChevronsRight className="w-4 h-4" />
+        </Button>
+
+        {/* Page info */}
+        <div className="ml-4 text-sm text-samoo-gray-medium">
+          {currentPage} / {totalPages} 페이지 (총 {totalItems}개)
+        </div>
+      </div>
+    )
+  }
+
+  const isAllSelected = paginatedTerms.length > 0 && paginatedTerms.every((term) => selectedTerms.has(term.id))
+  const isSomeSelected = paginatedTerms.some((term) => selectedTerms.has(term.id))
 
   return (
     <div>
@@ -219,14 +352,14 @@ export function AdminTermsTable({
             </tr>
           </thead>
           <tbody>
-            {filteredTerms.length === 0 ? (
+            {paginatedTerms.length === 0 ? (
               <tr>
                 <td colSpan={7} className="p-6 text-center text-samoo-gray-medium italic">
                   {searchTerm ? "검색 결과가 없습니다." : "등록된 용어가 없습니다."}
                 </td>
               </tr>
             ) : (
-              filteredTerms.map((term) => (
+              paginatedTerms.map((term) => (
                 <tr
                   key={term.id}
                   className={`border-b border-samoo-gray-light/50 hover:bg-samoo-gray-light/20 ${
@@ -250,7 +383,7 @@ export function AdminTermsTable({
                   </td>
                   <td className="p-3 text-xs">
                     <span className="px-2 py-1 bg-samoo-blue/10 text-samoo-blue rounded text-xs">
-                      {disciplineMap[term.discipline].abbreviation}
+                      {disciplineMap[term.discipline]?.abbreviation || term.discipline || "Unknown"}
                     </span>
                   </td>
                   <td className="p-3 text-xs text-samoo-gray font-medium">{term.en}</td>
@@ -297,6 +430,9 @@ export function AdminTermsTable({
           </tbody>
         </table>
       </div>
+
+      {/* Pagination */}
+      {renderPagination()}
 
       {searchTerm && (
         <p className="text-sm text-samoo-gray-medium mt-2">
